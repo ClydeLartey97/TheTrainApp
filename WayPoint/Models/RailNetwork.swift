@@ -6,6 +6,7 @@
 //
 
 import MapKit
+import SwiftUI
 
 enum RailNetwork: String, CaseIterable, Identifiable {
     case ukNationalRail
@@ -92,7 +93,8 @@ enum RailNetwork: String, CaseIterable, Identifiable {
                     duration: "52 min",
                     operatorName: "Great Western Railway",
                     changeSummary: "Direct",
-                    price: "£23.80"
+                    price: "£23.80",
+                    status: "On time"
                 ),
                 RailTrip(
                     origin: "Reading",
@@ -102,7 +104,8 @@ enum RailNetwork: String, CaseIterable, Identifiable {
                     duration: "26 min",
                     operatorName: "Great Western Railway",
                     changeSummary: "Direct",
-                    price: "£14.10"
+                    price: "£14.10",
+                    status: "On time"
                 ),
                 RailTrip(
                     origin: "Oxford",
@@ -112,7 +115,8 @@ enum RailNetwork: String, CaseIterable, Identifiable {
                     duration: "1 hr 8 min",
                     operatorName: "CrossCountry",
                     changeSummary: "Direct",
-                    price: "£28.20"
+                    price: "£28.20",
+                    status: "On time"
                 ),
             ]
         case .njTransit:
@@ -125,7 +129,8 @@ enum RailNetwork: String, CaseIterable, Identifiable {
                     duration: "22 min",
                     operatorName: "NJ TRANSIT",
                     changeSummary: "Direct",
-                    price: "$5.25"
+                    price: "$5.25",
+                    status: "On time"
                 ),
             ]
         case .longIslandRailRoad:
@@ -138,7 +143,8 @@ enum RailNetwork: String, CaseIterable, Identifiable {
                     duration: "34 min",
                     operatorName: "Long Island Rail Road",
                     changeSummary: "Direct",
-                    price: "$9.75"
+                    price: "$9.75",
+                    status: "On time"
                 ),
             ]
         }
@@ -152,21 +158,21 @@ enum RailNetwork: String, CaseIterable, Identifiable {
                     code: "GWR 1",
                     routeName: "Paddington → Oxford",
                     statusText: "Running on time near Reading",
-                    statusColor: .green,
+                    status: .onTime,
                     coordinate: CLLocationCoordinate2D(latitude: 51.4584, longitude: -0.9710)
                 ),
                 LiveTrain(
                     code: "XC 8",
                     routeName: "Oxford → Birmingham",
                     statusText: "7 min late approaching Banbury",
-                    statusColor: .orange,
+                    status: .minorDelay,
                     coordinate: CLLocationCoordinate2D(latitude: 52.0632, longitude: -1.3404)
                 ),
                 LiveTrain(
                     code: "ELZ 4",
                     routeName: "Liverpool Street → Shenfield",
                     statusText: "Minor delay eastbound",
-                    statusColor: .orange,
+                    status: .minorDelay,
                     coordinate: CLLocationCoordinate2D(latitude: 51.5154, longitude: -0.0726)
                 ),
             ]
@@ -176,14 +182,14 @@ enum RailNetwork: String, CaseIterable, Identifiable {
                     code: "NEC 2",
                     routeName: "Trenton → New York Penn",
                     statusText: "Running on time into Newark",
-                    statusColor: .green,
+                    status: .onTime,
                     coordinate: CLLocationCoordinate2D(latitude: 40.7340, longitude: -74.1642)
                 ),
                 LiveTrain(
                     code: "MNE 5",
                     routeName: "Hoboken → Dover",
                     statusText: "12 min late westbound",
-                    statusColor: .red,
+                    status: .severeDelay,
                     coordinate: CLLocationCoordinate2D(latitude: 40.7360, longitude: -74.0307)
                 ),
             ]
@@ -193,14 +199,14 @@ enum RailNetwork: String, CaseIterable, Identifiable {
                     code: "LIRR 7",
                     routeName: "Great Neck → Grand Central",
                     statusText: "Running on time through Queens",
-                    statusColor: .green,
+                    status: .onTime,
                     coordinate: CLLocationCoordinate2D(latitude: 40.7446, longitude: -73.9488)
                 ),
                 LiveTrain(
                     code: "LIRR 3",
                     routeName: "Penn Station → Port Washington",
                     statusText: "5 min late leaving Manhattan",
-                    statusColor: .orange,
+                    status: .minorDelay,
                     coordinate: CLLocationCoordinate2D(latitude: 40.7510, longitude: -73.9935)
                 ),
             ]

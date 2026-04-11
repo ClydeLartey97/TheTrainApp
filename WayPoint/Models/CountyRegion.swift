@@ -21,6 +21,17 @@ enum CountyRegion: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    var network: RailNetwork {
+        switch self {
+        case .national, .oxfordshire, .greaterLondon, .berkshire:
+            .ukNationalRail
+        case .newJersey, .newark, .hoboken:
+            .njTransit
+        case .greatNeck, .queens, .manhattan:
+            .longIslandRailRoad
+        }
+    }
+
     var displayName: String {
         switch self {
         case .national:
@@ -43,6 +54,15 @@ enum CountyRegion: String, CaseIterable, Identifiable {
             "Queens"
         case .manhattan:
             "Manhattan"
+        }
+    }
+
+    var locationLabel: String {
+        switch self {
+        case .national, .oxfordshire, .greaterLondon, .berkshire:
+            "United Kingdom"
+        case .newJersey, .newark, .hoboken, .greatNeck, .queens, .manhattan:
+            "United States"
         }
     }
 

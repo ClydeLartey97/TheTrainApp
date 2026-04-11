@@ -10,8 +10,7 @@ import SwiftUI
 struct TrainTimesView: View {
     @Binding var selectedNetwork: RailNetwork
     @Binding var departureDate: Date
-    @State private var origin = "London Paddington"
-    @State private var destination = "Oxford"
+    @State private var viewModel = SearchViewModel()
 
     private var nearbyNetworks: [RailNetwork] {
         RailNetwork.allCases
@@ -23,12 +22,22 @@ struct TrainTimesView: View {
                 header
                 locationCard
                 searchCard
+                resultsSection
                 liveSnapshotCard
-                departuresSection
+                if viewModel.searchResults.isEmpty {
+                    sampleDeparturesSection
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 22)
             .padding(.bottom, 120)
+        }
+        .sheet(isPresented: $viewModel.isShowingServiceDetail) {
+            if let trip = viewModel.selectedTrip {
+                ServiceDetailSheet(trip: trip)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
         }
     }
 
@@ -38,7 +47,7 @@ struct TrainTimesView: View {
                 .font(.system(size: 34, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
 
-            Text("Waypoint adapts to your location, so the same experience can surface UK rail now and regional rail later.")
+            Text("WayPoint keeps train times familiar as you move between rail networks.")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.78))
         }
@@ -74,7 +83,9 @@ struct TrainTimesView: View {
                 HStack(spacing: 10) {
                     ForEach(nearbyNetworks) { network in
                         Button {
-                            selectedNetwork = network
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                selectedNetwork = network
+                            }
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(network.shortLabel)
@@ -88,11 +99,11 @@ struct TrainTimesView: View {
                             .frame(width: 138, alignment: .leading)
                             .background(
                                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .fill(network == selectedNetwork ? Color.accentColor.opacity(0.22) : Color.white.opacity(0.48))
+                                    .fill(network == selectedNetwork ? Color.waypointTint.opacity(0.22) : Color.white.opacity(0.48))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(network == selectedNetwork ? Color.accentColor.opacity(0.45) : Color.white.opacity(0.35), lineWidth: 1)
+                                    .stroke(network == selectedNetwork ? Color.waypointTint.opacity(0.45) : Color.white.opacity(0.35), lineWidth: 1)
                             )
                         }
                         .buttonStyle(.plain)
@@ -100,6 +111,7 @@ struct TrainTimesView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
         .glassCard()
     }
@@ -107,45 +119,143 @@ struct TrainTimesView: View {
     private var searchCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Train Times & Tickets")
+                Text("Train Times")
                     .font(.headline)
 
                 Spacer()
 
-                Image(systemName: "train.side.front.car")
-                    .foregroundStyle(.accentColor)
-            }
-
-            RouteField(label: "From", value: $origin, symbol: "circle.fill")
-            RouteField(label: "To", value: $destination, symbol: "mappin.and.ellipse")
-
-            DatePicker("Departure", selection: $departureDate, displayedComponents: [.date, .hourAndMinute])
-                .datePickerStyle(.compact)
-                .tint(.accentColor)
-
-            Button {
-            } label: {
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                    Text("Search Trains")
-                        .fontWeight(.semibold)
+                if selectedNetwork == .ukNationalRail {
+                    Label("Live", systemImage: "antenna.radiowaves.left.and.right")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Color.statusOnTime)
+                } else {
+                    Image(systemName: "train.side.front.car")
+                        .foregroundStyle(Color.waypointTint)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    LinearGradient(
-                        colors: [Color(red: 0.17, green: 0.47, blue: 0.95), Color(red: 0.08, green: 0.72, blue: 0.85)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-                )
-                .foregroundStyle(.white)
             }
-            .buttonStyle(.plain)
+
+            RouteField(
+                label: "From",
+                value: $viewModel.origin,
+                symbol: "circle.fill",
+                suggestions: viewModel.originSuggestions,
+                isShowingSuggestions: viewModel.isShowingOriginSuggestions,
+                onTextChange: { viewModel.updateOriginSuggestions() },
+                onSelect: { viewModel.selectOrigin($0) }
+            )
+
+            // Swap button
+            HStack {
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        viewModel.swapStations()
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.waypointTint)
+                        .padding(8)
+                        .background(Color.white.opacity(0.5), in: Circle())
+                }
+                .buttonStyle(.plain)
+                Spacer()
+            }
+            .padding(.vertical, -8)
+
+            RouteField(
+                label: "To",
+                value: $viewModel.destination,
+                symbol: "mappin.and.ellipse",
+                suggestions: viewModel.destinationSuggestions,
+                isShowingSuggestions: viewModel.isShowingDestinationSuggestions,
+                onTextChange: { viewModel.updateDestinationSuggestions() },
+                onSelect: { viewModel.selectDestination($0) }
+            )
+
+            if selectedNetwork == .ukNationalRail {
+                Button {
+                    viewModel.isShowingOriginSuggestions = false
+                    viewModel.isShowingDestinationSuggestions = false
+                    Task {
+                        await viewModel.searchDepartures()
+                    }
+                } label: {
+                    HStack {
+                        if viewModel.isSearching {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        Text(viewModel.isSearching ? "Searching..." : "Search Trains")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.waypointTint, Color.waypointTeal],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    )
+                    .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isSearching)
+            } else {
+                Text("Live departures are only available for UK Rail. Showing sample data below.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+            }
+
+            if let error = viewModel.errorMessage {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Color.statusMinorDelay)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.statusMinorDelay.opacity(0.12))
+                )
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
         .glassCard()
+    }
+
+    @ViewBuilder
+    private var resultsSection: some View {
+        if !viewModel.searchResults.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Live departures")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+
+                    Spacer()
+
+                    Text("\(viewModel.searchResults.count) found")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+
+                ForEach(viewModel.searchResults) { trip in
+                    TripCard(trip: trip) {
+                        viewModel.showServiceDetail(for: trip)
+                    }
+                }
+            }
+        }
     }
 
     private var liveSnapshotCard: some View {
@@ -172,18 +282,21 @@ struct TrainTimesView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
         .glassCard()
     }
 
-    private var departuresSection: some View {
+    private var sampleDeparturesSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Sample departures")
                 .font(.headline)
                 .foregroundStyle(.white)
 
             ForEach(selectedNetwork.sampleTrips) { trip in
-                TripCard(trip: trip)
+                TripCard(trip: trip) {
+                    viewModel.showServiceDetail(for: trip)
+                }
             }
         }
     }

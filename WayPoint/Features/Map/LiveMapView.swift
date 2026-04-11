@@ -12,6 +12,8 @@ struct LiveMapView: View {
     @Binding var selectedNetwork: RailNetwork
     @Binding var mapRegion: MKCoordinateRegion
     @State private var selectedCounty: CountyRegion
+    @State private var isRegionPickerPresented = false
+    @State private var isExpandedMapPresented = false
 
     init(selectedNetwork: Binding<RailNetwork>, mapRegion: Binding<MKCoordinateRegion>) {
         _selectedNetwork = selectedNetwork
@@ -21,11 +23,11 @@ struct LiveMapView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
                 mapHeader
+                mapControls
                 mapCard
-                countyFilters
-                trainLegend
+                serviceSummary
                 trainFeed
             }
             .padding(.horizontal, 20)
@@ -33,9 +35,29 @@ struct LiveMapView: View {
             .padding(.bottom, 120)
         }
         .onChange(of: selectedNetwork) { _, newValue in
-            let fallback = newValue.counties.first ?? .national
-            selectedCounty = fallback
-            mapRegion = fallback.region
+            if selectedCounty.network != newValue {
+                let fallback = newValue.counties.first ?? .national
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    selectedCounty = fallback
+                }
+                mapRegion = fallback.region
+            }
+        }
+        .sheet(isPresented: $isRegionPickerPresented) {
+            RegionPickerSheet(
+                selectedRegion: $selectedCounty,
+                selectedNetwork: $selectedNetwork,
+                mapRegion: $mapRegion
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(isPresented: $isExpandedMapPresented) {
+            ExpandedMapView(
+                selectedNetwork: $selectedNetwork,
+                selectedCounty: $selectedCounty,
+                mapRegion: $mapRegion
+            )
         }
     }
 
@@ -45,98 +67,123 @@ struct LiveMapView: View {
                 .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
 
-            Text("Select a region and the map zooms to it. Each network can plug its own live positions into the same shared map experience.")
+            Text("Tap the map to expand it. Choose a region to filter the view. The summary below stays tied to the trains you are looking at.")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.78))
         }
     }
 
-    private var mapCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(selectedNetwork.displayName)
-                        .font(.headline)
-                    Text(selectedCounty.displayName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Label("Live", systemImage: "dot.radiowaves.left.and.right")
+    private var mapControls: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Network")
                     .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(Color.green.opacity(0.18), in: Capsule())
-                    .foregroundStyle(Color.green.opacity(0.9))
+                    .foregroundStyle(.secondary)
+
+                Text(selectedNetwork.displayName)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+
+                Text(selectedCounty.locationLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+            .glassCard()
 
-            Map(coordinateRegion: $mapRegion, annotationItems: selectedNetwork.trains) { train in
-                MapAnnotation(coordinate: train.coordinate) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "train.side.front.car")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(9)
-                            .background(train.statusColor, in: Circle())
-                            .shadow(color: train.statusColor.opacity(0.35), radius: 8, y: 3)
+            Button {
+                isRegionPickerPresented = true
+            } label: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Region")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
 
-                        Text(train.code)
-                            .font(.caption2.weight(.bold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .background(.ultraThinMaterial, in: Capsule())
-                    }
+                    Text(selectedCounty.displayName)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+
+                    Label("Change", systemImage: "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.waypointTint)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+                .glassCard()
             }
-            .frame(height: 360)
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .buttonStyle(.plain)
         }
-        .padding(20)
-        .glassCard()
     }
 
-    private var countyFilters: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Region")
+    private var mapCard: some View {
+        Button {
+            isExpandedMapPresented = true
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(selectedCounty.displayName)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+
+                        Text("\(selectedNetwork.displayName) • \(selectedCounty.locationLabel)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Label("Tap to expand", systemImage: "arrow.up.left.and.arrow.down.right")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(Color.white.opacity(0.62), in: Capsule())
+                        .foregroundStyle(.primary)
+                }
+
+                RailMapCanvas(mapRegion: $mapRegion, trains: selectedNetwork.trains, height: 310)
+
+                HStack(spacing: 10) {
+                    MapSummaryPill(title: "Tracked", value: "\(selectedNetwork.trains.count)", color: .waypointTint)
+                    MapSummaryPill(title: "On time", value: "\(statusCount(for: .onTime))", color: .statusOnTime)
+                    MapSummaryPill(title: "Delayed", value: "\(statusCount(for: .minorDelay) + statusCount(for: .severeDelay))", color: .statusMinorDelay)
+                }
+            }
+            .padding(20)
+            .glassCard()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var serviceSummary: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Service summary")
                 .font(.headline)
                 .foregroundStyle(.white)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(selectedNetwork.counties) { county in
-                        Button {
-                            selectedCounty = county
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
-                                mapRegion = county.region
-                            }
-                        } label: {
-                            Text(county.displayName)
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .fill(county == selectedCounty ? Color.accentColor.opacity(0.24) : Color.white.opacity(0.5))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .stroke(county == selectedCounty ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.3), lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-    }
+            Text(summaryLine)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.84))
+                .fixedSize(horizontal: false, vertical: true)
 
-    private var trainLegend: some View {
-        HStack(spacing: 10) {
-            LegendPill(title: "On time", color: .green)
-            LegendPill(title: "Minor delay", color: .orange)
-            LegendPill(title: "Severe", color: .red)
+            HStack(spacing: 12) {
+                StatusMetricCard(
+                    title: "On time",
+                    value: "\(statusCount(for: .onTime))",
+                    tint: .statusOnTime
+                )
+                StatusMetricCard(
+                    title: "Minor",
+                    value: "\(statusCount(for: .minorDelay))",
+                    tint: .statusMinorDelay
+                )
+                StatusMetricCard(
+                    title: "Severe",
+                    value: "\(statusCount(for: .severeDelay))",
+                    tint: .statusSevereDelay
+                )
+            }
         }
     }
 
@@ -163,21 +210,83 @@ struct LiveMapView: View {
 
                     Spacer()
 
-                    Text(train.code)
-                        .font(.caption.weight(.bold))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.white.opacity(0.58), in: Capsule())
+                    VStack(alignment: .trailing, spacing: 8) {
+                        Text(train.code)
+                            .font(.caption.weight(.bold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.58), in: Capsule())
+
+                        Text(train.status.label)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(train.statusColor)
+                    }
                 }
                 .padding(18)
                 .glassCard()
             }
         }
     }
+
+    private var summaryLine: String {
+        let total = selectedNetwork.trains.count
+        let severe = statusCount(for: .severeDelay)
+        let delayed = statusCount(for: .minorDelay)
+        let onTime = statusCount(for: .onTime)
+
+        if severe > 0 {
+            return "\(selectedCounty.displayName) has \(severe) severe disruption\(severe == 1 ? "" : "s"), \(delayed) minor delay\(delayed == 1 ? "" : "s"), and \(onTime) train\(onTime == 1 ? "" : "s") running on time out of \(total) tracked services."
+        }
+
+        if delayed > 0 {
+            return "\(selectedCounty.displayName) has \(delayed) delayed service\(delayed == 1 ? "" : "s"), with \(onTime) train\(onTime == 1 ? "" : "s") currently on time."
+        }
+
+        return "All \(total) tracked services in \(selectedCounty.displayName) are currently on time."
+    }
+
+    private func statusCount(for status: TrainStatus) -> Int {
+        selectedNetwork.trains.filter { $0.status == status }.count
+    }
 }
 
-private struct LegendPill: View {
+// MARK: - Map Canvas (non-interactive preview)
+
+private struct RailMapCanvas: View {
+    @Binding var mapRegion: MKCoordinateRegion
+    let trains: [LiveTrain]
+    let height: CGFloat
+
+    var body: some View {
+        Map(coordinateRegion: $mapRegion, annotationItems: trains) { train in
+            MapAnnotation(coordinate: train.coordinate) {
+                VStack(spacing: 4) {
+                    Image(systemName: "train.side.front.car")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(9)
+                        .background(train.statusColor, in: Circle())
+                        .shadow(color: train.statusColor.opacity(0.35), radius: 8, y: 3)
+
+                    Text(train.code)
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }
+            }
+        }
+        .frame(height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Summary Pills
+
+private struct MapSummaryPill: View {
     let title: String
+    let value: String
     let color: Color
 
     var body: some View {
@@ -188,10 +297,197 @@ private struct LegendPill: View {
 
             Text(title)
                 .font(.caption.weight(.semibold))
+
+            Text(value)
+                .font(.caption.weight(.bold))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.white.opacity(0.55), in: Capsule())
+        .foregroundStyle(.primary)
+    }
+}
+
+// MARK: - Status Metric Card
+
+private struct StatusMetricCard: View {
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(value)
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.white)
+
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.72))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(tint.opacity(0.18))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(tint.opacity(0.34), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Region Picker Sheet
+
+private struct RegionPickerSheet: View {
+    @Binding var selectedRegion: CountyRegion
+    @Binding var selectedNetwork: RailNetwork
+    @Binding var mapRegion: MKCoordinateRegion
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(RailNetwork.allCases) { network in
+                    Section(network.displayName) {
+                        ForEach(network.counties) { region in
+                            Button {
+                                selectedRegion = region
+                                selectedNetwork = region.network
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                    mapRegion = region.region
+                                }
+                                dismiss()
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(region.displayName)
+                                            .foregroundStyle(.primary)
+                                        Text(region.locationLabel)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    if region == selectedRegion {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(Color.waypointTint)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Select Region")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
+// MARK: - Expanded Map (Full Screen)
+
+private struct ExpandedMapView: View {
+    @Binding var selectedNetwork: RailNetwork
+    @Binding var selectedCounty: CountyRegion
+    @Binding var mapRegion: MKCoordinateRegion
+    @State private var isRegionPickerPresented = false
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack(alignment: .bottom) {
+                // Full-screen interactive map
+                Map(coordinateRegion: $mapRegion, annotationItems: selectedNetwork.trains) { train in
+                    MapAnnotation(coordinate: train.coordinate) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "train.side.front.car")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(10)
+                                .background(train.statusColor, in: Circle())
+                                .shadow(color: train.statusColor.opacity(0.35), radius: 10, y: 4)
+
+                            Text(train.code)
+                                .font(.caption2.weight(.bold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 4)
+                                .background(.ultraThinMaterial, in: Capsule())
+                        }
+                    }
+                }
+                .ignoresSafeArea(edges: .bottom)
+
+                // Bottom controls overlay
+                VStack(spacing: 12) {
+                    // Region info bar
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(selectedCounty.displayName)
+                                .font(.headline)
+                            Text("\(selectedNetwork.displayName) • \(selectedCounty.locationLabel)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            isRegionPickerPresented = true
+                        } label: {
+                            Label("Region", systemImage: "list.bullet")
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(.ultraThinMaterial, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Train summary
+                    HStack(spacing: 10) {
+                        MapSummaryPill(title: "Tracked", value: "\(selectedNetwork.trains.count)", color: .waypointTint)
+                        MapSummaryPill(title: "On time", value: "\(onTimeCount)", color: .statusOnTime)
+                        MapSummaryPill(title: "Delayed", value: "\(delayedCount)", color: .statusMinorDelay)
+                    }
+                }
+                .padding(20)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.ultraThinMaterial, in: Capsule())
+                }
+            }
+            .sheet(isPresented: $isRegionPickerPresented) {
+                RegionPickerSheet(
+                    selectedRegion: $selectedCounty,
+                    selectedNetwork: $selectedNetwork,
+                    mapRegion: $mapRegion
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+        }
+    }
+
+    private var onTimeCount: Int {
+        selectedNetwork.trains.filter { $0.status == .onTime }.count
+    }
+
+    private var delayedCount: Int {
+        selectedNetwork.trains.filter { $0.status == .minorDelay || $0.status == .severeDelay }.count
     }
 }
 
