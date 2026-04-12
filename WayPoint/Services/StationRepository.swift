@@ -194,7 +194,6 @@ struct StationRepository {
         Station(name: "Kidderminster", crs: "KID"),
         Station(name: "Birmingham International", crs: "BHI"),
         Station(name: "Solihull", crs: "SOL"),
-        Station(name: "Wolverhampton", crs: "WVH"),
     ]
 
     /// Search stations by name prefix (case-insensitive)

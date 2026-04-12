@@ -91,13 +91,15 @@ actor DepartureService {
         self.session = URLSession(configuration: config)
     }
 
-    /// Fetch departures from a station, optionally filtered to a destination
-    func fetchDepartures(from originCRS: String, to destinationCRS: String? = nil) async throws -> [RailTrip] {
+    /// Fetch departures from a station, optionally filtered to a destination and time.
+    /// `date` defaults to now; future dates produce a positive `timeOffset` (minutes ahead).
+    func fetchDepartures(from originCRS: String, to destinationCRS: String? = nil, date: Date = .now) async throws -> [RailTrip] {
         var urlString = "\(baseURL)/departures/\(originCRS)"
         if let dest = destinationCRS {
             urlString += "/to/\(dest)"
         }
-        urlString += "?expand=true"
+        let offsetMinutes = max(0, Int(date.timeIntervalSinceNow / 60))
+        urlString += "?expand=true&timeOffset=\(offsetMinutes)"
 
         guard let url = URL(string: urlString) else {
             throw DepartureError.invalidURL

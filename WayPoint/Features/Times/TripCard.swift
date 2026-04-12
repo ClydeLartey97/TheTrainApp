@@ -11,15 +11,6 @@ struct TripCard: View {
     let trip: RailTrip
     var onViewService: (() -> Void)? = nil
 
-    private var statusColor: Color {
-        switch trip.status {
-        case "On time": .statusOnTime
-        case "Cancelled": .statusSevereDelay
-        case let s? where s.starts(with: "Exp.") || s == "Delayed": .statusMinorDelay
-        default: .secondary
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
@@ -78,11 +69,11 @@ struct TripCard: View {
             if let status = trip.status {
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(statusColor)
+                        .fill(trip.tripStatus.color)
                         .frame(width: 8, height: 8)
                     Text(status)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(statusColor)
+                        .foregroundStyle(trip.tripStatus.color)
 
                     if let reason = trip.delayReason ?? trip.cancelReason {
                         Text("— \(reason)")
@@ -101,7 +92,7 @@ struct TripCard: View {
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.58), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -143,15 +134,15 @@ struct ServiceDetailSheet: View {
                     if let status = trip.status {
                         HStack(spacing: 8) {
                             Circle()
-                                .fill(statusColor)
+                                .fill(trip.tripStatus.color)
                                 .frame(width: 10, height: 10)
                             Text(status)
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(statusColor)
+                                .foregroundStyle(trip.tripStatus.color)
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(statusColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(trip.tripStatus.color.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
 
                     // Delay / cancel reason
@@ -257,14 +248,6 @@ struct ServiceDetailSheet: View {
         }
     }
 
-    private var statusColor: Color {
-        switch trip.status {
-        case "On time": .statusOnTime
-        case "Cancelled": .statusSevereDelay
-        case let s? where s.starts(with: "Exp.") || s == "Delayed": .statusMinorDelay
-        default: .secondary
-        }
-    }
 }
 
 #Preview {

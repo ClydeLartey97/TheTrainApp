@@ -10,8 +10,8 @@ import Observation
 
 @Observable
 final class SearchViewModel {
-    var origin = "London Paddington"
-    var destination = "Oxford"
+    var origin = ""
+    var destination = ""
     var departureDate = Date.now
 
     var originSuggestions: [Station] = []
@@ -80,7 +80,8 @@ final class SearchViewModel {
         do {
             let trips = try await service.fetchDepartures(
                 from: originStation.crs,
-                to: destStation?.crs
+                to: destStation?.crs,
+                date: departureDate
             )
             searchResults = trips
             hasSearched = true

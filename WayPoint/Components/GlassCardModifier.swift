@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct GlassCardModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
     private var cardShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: 28, style: .continuous)
     }
@@ -20,9 +22,9 @@ struct GlassCardModifier: ViewModifier {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.22),
-                                Color.white.opacity(0.10),
-                                Color.white.opacity(0.03),
+                                Color.white.opacity(0.14),
+                                Color.white.opacity(0.05),
+                                Color.clear,
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -31,26 +33,26 @@ struct GlassCardModifier: ViewModifier {
             }
             .overlay {
                 cardShape
-                    .stroke(Color.white.opacity(0.32), lineWidth: 1)
-            }
-            .overlay {
-                cardShape
                     .stroke(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.52),
-                                Color.white.opacity(0.12),
-                                Color.black.opacity(0.10),
+                                Color.white.opacity(0.28),
+                                Color.white.opacity(0.08),
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1
+                        lineWidth: 0.5
                     )
             }
             .clipShape(cardShape)
-            .shadow(color: .black.opacity(0.16), radius: 22, y: 14)
-            .shadow(color: .white.opacity(0.12), radius: 10, y: -2)
+            .shadow(
+                color: colorScheme == .dark
+                    ? .black.opacity(0.35)
+                    : .black.opacity(0.06),
+                radius: colorScheme == .dark ? 20 : 10,
+                y: colorScheme == .dark ? 12 : 5
+            )
     }
 }
 

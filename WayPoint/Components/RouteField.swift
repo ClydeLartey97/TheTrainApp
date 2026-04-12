@@ -34,7 +34,7 @@ struct RouteField: View {
                         }
                 }
                 .padding(14)
-                .background(Color.white.opacity(0.52), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
 
             if isShowingSuggestions && !suggestions.isEmpty {
@@ -71,7 +71,7 @@ struct RouteField: View {
                         }
                     }
                 }
-                .background(Color.white.opacity(0.42), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .padding(.top, 6)
             }
         }

@@ -30,18 +30,6 @@ struct AppShellView: View {
             }
         }
         .tint(.waypointTint)
-        .background {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.06, green: 0.11, blue: 0.18),
-                    Color(red: 0.10, green: 0.16, blue: 0.28),
-                    Color(red: 0.93, green: 0.96, blue: 0.99),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-        }
         .onAppear {
             mapRegion = selectedNetwork.defaultRegion
         }
