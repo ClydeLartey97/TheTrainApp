@@ -12,6 +12,7 @@ struct AppShellView: View {
     @State private var selectedNetwork: RailNetwork = .ukNationalRail
     @State private var departureDate = Date.now
     @State private var mapRegion = RailNetwork.ukNationalRail.defaultRegion
+    @State private var locationManager = LocationManager()
 
     var body: some View {
         TabView {
@@ -28,13 +29,26 @@ struct AppShellView: View {
                     mapRegion: $mapRegion
                 )
             }
+
+            Tab(selectedNetwork.rapidTransitTabLabel, systemImage: "tram.fill") {
+                SubwayMapView(selectedNetwork: $selectedNetwork)
+            }
         }
         .tint(.waypointTint)
         .onAppear {
             mapRegion = selectedNetwork.defaultRegion
+            locationManager.requestOnce()
+        }
+        .onChange(of: locationManager.detectedNetwork) { _, detected in
+            guard let network = detected else { return }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                selectedNetwork = network
+            }
         }
         .onChange(of: selectedNetwork) { _, newValue in
-            mapRegion = newValue.defaultRegion
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                mapRegion = newValue.defaultRegion
+            }
         }
     }
 }

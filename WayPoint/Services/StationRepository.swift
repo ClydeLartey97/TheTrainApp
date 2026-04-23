@@ -198,27 +198,58 @@ struct StationRepository {
 
     /// Search stations by name prefix (case-insensitive)
     func search(query: String) -> [Station] {
-        guard !query.isEmpty else { return [] }
-        let lowered = query.lowercased()
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        let lowered = normalized(trimmed)
+        let uppercased = trimmed.uppercased()
+
         return stations.filter { station in
-            station.name.lowercased().contains(lowered)
+            normalized(station.name).contains(lowered) || station.crs.hasPrefix(uppercased)
         }
         .sorted { a, b in
-            // Prefer matches that start with the query
-            let aStarts = a.name.lowercased().hasPrefix(lowered)
-            let bStarts = b.name.lowercased().hasPrefix(lowered)
+            let aCRS = a.crs == uppercased
+            let bCRS = b.crs == uppercased
+            if aCRS != bCRS { return aCRS }
+
+            let aStarts = normalized(a.name).hasPrefix(lowered)
+            let bStarts = normalized(b.name).hasPrefix(lowered)
             if aStarts != bStarts { return aStarts }
             return a.name < b.name
         }
     }
 
+    func resolveStation(query: String) -> Station? {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if let station = findStation(crs: trimmed) {
+            return station
+        }
+
+        if let station = findStation(named: trimmed) {
+            return station
+        }
+
+        let matches = search(query: trimmed)
+        return matches.count == 1 ? matches[0] : nil
+    }
+
     /// Look up a station by exact name (case-insensitive)
     func findStation(named name: String) -> Station? {
-        stations.first { $0.name.lowercased() == name.lowercased() }
+        let normalizedName = normalized(name)
+        return stations.first { normalized($0.name) == normalizedName }
     }
 
     /// Look up a station by CRS code
     func findStation(crs: String) -> Station? {
-        stations.first { $0.crs.uppercased() == crs.uppercased() }
+        let normalizedCRS = crs.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return stations.first { $0.crs.uppercased() == normalizedCRS }
+    }
+
+    private func normalized(_ value: String) -> String {
+        value
+            .lowercased()
+            .folding(options: [.diacriticInsensitive, .widthInsensitive], locale: .current)
+            .filter { $0.isLetter || $0.isNumber }
     }
 }

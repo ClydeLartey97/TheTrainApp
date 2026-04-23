@@ -30,6 +30,7 @@ struct GlassCardModifier: ViewModifier {
                             endPoint: .bottomTrailing
                         )
                     )
+                    .allowsHitTesting(false)
             }
             .overlay {
                 cardShape
@@ -44,6 +45,7 @@ struct GlassCardModifier: ViewModifier {
                         ),
                         lineWidth: 0.5
                     )
+                    .allowsHitTesting(false)
             }
             .clipShape(cardShape)
             .shadow(

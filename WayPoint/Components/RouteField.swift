@@ -15,6 +15,7 @@ struct RouteField: View {
     var isShowingSuggestions: Bool = false
     var onTextChange: (() -> Void)? = nil
     var onSelect: ((Station) -> Void)? = nil
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -29,19 +30,27 @@ struct RouteField: View {
 
                     TextField("Station name", text: $value)
                         .textInputAutocapitalization(.words)
+                        .focused($isFocused)
                         .onChange(of: value) {
                             onTextChange?()
                         }
                 }
                 .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
                 .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .onTapGesture {
+                    isFocused = true
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if isShowingSuggestions && !suggestions.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(suggestions) { station in
                         Button {
                             onSelect?(station)
+                            isFocused = false
                         } label: {
                             HStack(spacing: 10) {
                                 Image(systemName: "train.side.front.car")
@@ -75,5 +84,6 @@ struct RouteField: View {
                 .padding(.top, 6)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

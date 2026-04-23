@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct CallingPoint: Identifiable, Hashable {
+nonisolated struct CallingPoint: Identifiable, Hashable {
     var id: String { "\(crs)-\(scheduledTime)" }
     let stationName: String
     let crs: String
@@ -30,7 +30,7 @@ struct CallingPoint: Identifiable, Hashable {
     }
 }
 
-struct RailTrip: Identifiable {
+nonisolated struct RailTrip: Identifiable {
     let id = UUID()
     let origin: String
     let destination: String

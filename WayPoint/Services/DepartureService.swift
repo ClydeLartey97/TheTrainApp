@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - Huxley2 API Response Models
 
-struct Huxley2Response: Decodable {
+nonisolated struct Huxley2Response: Decodable {
     let trainServices: [Huxley2Service]?
     let locationName: String?
     let crs: String?
@@ -17,13 +17,13 @@ struct Huxley2Response: Decodable {
     let areServicesAvailable: Bool?
 }
 
-struct Huxley2Service: Decodable {
+nonisolated struct Huxley2Service: Decodable {
     let origin: [Huxley2Location]?
     let destination: [Huxley2Location]?
-    let std: String? // scheduled time of departure
-    let etd: String? // estimated time of departure ("On time", "Delayed", "Cancelled", or time)
-    let sta: String? // scheduled time of arrival
-    let eta: String? // estimated time of arrival
+    let std: String?
+    let etd: String?
+    let sta: String?
+    let eta: String?
     let platform: String?
     let `operator`: String?
     let operatorCode: String?
@@ -31,35 +31,40 @@ struct Huxley2Service: Decodable {
     let cancelReason: String?
     let delayReason: String?
     let serviceIdPercentEncoded: String?
+    let serviceIdUrlSafe: String?
+    let serviceID: String?
     let length: Int?
-
-    // Service details (when fetched individually)
     let previousCallingPoints: [Huxley2CallingPointList]?
     let subsequentCallingPoints: [Huxley2CallingPointList]?
 }
 
-struct Huxley2Location: Decodable {
+nonisolated struct Huxley2Location: Decodable {
     let locationName: String?
     let crs: String?
     let via: String?
 }
 
-struct Huxley2CallingPointList: Decodable {
+nonisolated struct Huxley2CallingPointList: Decodable {
     let callingPoint: [Huxley2CallingPoint]?
 }
 
-struct Huxley2CallingPoint: Decodable, Identifiable {
+nonisolated struct Huxley2CallingPoint: Decodable, Identifiable {
     var id: String { "\(crs ?? "")-\(st ?? "")" }
     let locationName: String?
     let crs: String?
-    let st: String? // scheduled time
-    let et: String? // estimated time
-    let at: String? // actual time
+    let st: String?
+    let et: String?
+    let at: String?
+}
+
+nonisolated struct Huxley2CRSStation: Decodable {
+    let stationName: String
+    let crsCode: String
 }
 
 // MARK: - Service Detail Response
 
-struct Huxley2ServiceDetail: Decodable {
+nonisolated struct Huxley2ServiceDetail: Decodable {
     let origin: [Huxley2Location]?
     let destination: [Huxley2Location]?
     let std: String?
@@ -91,20 +96,36 @@ actor DepartureService {
         self.session = URLSession(configuration: config)
     }
 
-    /// Fetch departures from a station, optionally filtered to a destination and time.
-    /// `date` defaults to now; future dates produce a positive `timeOffset` (minutes ahead).
     func fetchDepartures(from originCRS: String, to destinationCRS: String? = nil, date: Date = .now) async throws -> [RailTrip] {
-        var urlString = "\(baseURL)/departures/\(originCRS)"
-        if let dest = destinationCRS {
-            urlString += "/to/\(dest)"
-        }
-        let offsetMinutes = max(0, Int(date.timeIntervalSinceNow / 60))
-        urlString += "?expand=true&timeOffset=\(offsetMinutes)"
+        let url = try departureURL(from: originCRS, to: destinationCRS, date: date)
 
-        guard let url = URL(string: urlString) else {
-            throw DepartureError.invalidURL
+        let (data, response) = try await session.data(from: url)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw DepartureError.invalidResponse
         }
 
+        guard httpResponse.statusCode == 200 else {
+            throw departureError(for: httpResponse.statusCode, data: data)
+        }
+
+        let huxleyResponse = try JSONDecoder().decode(Huxley2Response.self, from: data)
+
+        guard let services = huxleyResponse.trainServices, !services.isEmpty else {
+            return []
+        }
+
+        let stationName = huxleyResponse.locationName ?? originCRS
+        return services.compactMap { service in
+            mapServiceToTrip(service: service, fromStation: stationName, fromCRS: originCRS, destinationCRS: destinationCRS)
+        }
+    }
+
+    func searchStations(query: String) async throws -> [Station] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedQuery.count >= 2 else { return [] }
+
+        let url = try crsURL(query: trimmedQuery)
         let (data, response) = try await session.data(from: url)
 
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -115,58 +136,111 @@ actor DepartureService {
             throw DepartureError.httpError(httpResponse.statusCode)
         }
 
-        let decoder = JSONDecoder()
-        let huxleyResponse = try decoder.decode(Huxley2Response.self, from: data)
-
-        guard let services = huxleyResponse.trainServices, !services.isEmpty else {
-            return []
-        }
-
-        return services.compactMap { service in
-            mapServiceToTrip(service: service, fromStation: huxleyResponse.locationName ?? originCRS)
-        }
+        return try JSONDecoder()
+            .decode([Huxley2CRSStation].self, from: data)
+            .map { Station(name: $0.stationName, crs: $0.crsCode) }
     }
 
-    /// Fetch service details (calling points) for a specific service
     func fetchServiceDetail(serviceId: String) async throws -> Huxley2ServiceDetail {
-        let urlString = "\(baseURL)/service/\(serviceId)"
-
-        guard let url = URL(string: urlString) else {
-            throw DepartureError.invalidURL
-        }
+        let url = try serviceURL(serviceId: serviceId)
 
         let (data, response) = try await session.data(from: url)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw DepartureError.invalidResponse
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw departureError(for: httpResponse.statusCode, data: data)
         }
 
         return try JSONDecoder().decode(Huxley2ServiceDetail.self, from: data)
     }
 
-    private func mapServiceToTrip(service: Huxley2Service, fromStation: String) -> RailTrip? {
+    private func departureURL(from originCRS: String, to destinationCRS: String?, date: Date) throws -> URL {
+        let origin = originCRS.uppercased()
+        let destination = destinationCRS?.uppercased()
+        let path = destination.map { "/departures/\(origin)/to/\($0)" } ?? "/departures/\(origin)"
+        return try huxleyURL(path: path, queryItems: boardQueryItems(for: date))
+    }
+
+    private func serviceURL(serviceId: String) throws -> URL {
+        try huxleyURL(percentEncodedPath: "/service/\(serviceId)", queryItems: [])
+    }
+
+    private func crsURL(query: String) throws -> URL {
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: "/")
+        let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: allowed) ?? query
+        return try huxleyURL(percentEncodedPath: "/crs/\(encodedQuery)", queryItems: [])
+    }
+
+    private func boardQueryItems(for date: Date) -> [URLQueryItem] {
+        [
+            URLQueryItem(name: "expand", value: "true"),
+            URLQueryItem(name: "timeOffset", value: "\(timeOffsetMinutes(for: date))"),
+            URLQueryItem(name: "timeWindow", value: "120"),
+        ]
+    }
+
+    private func huxleyURL(path: String, queryItems: [URLQueryItem]) throws -> URL {
+        try huxleyURL(percentEncodedPath: path, queryItems: queryItems)
+    }
+
+    private func huxleyURL(percentEncodedPath: String, queryItems: [URLQueryItem]) throws -> URL {
+        guard var components = URLComponents(string: baseURL) else {
+            throw DepartureError.invalidURL
+        }
+        components.percentEncodedPath = percentEncodedPath
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+
+        guard let url = components.url else {
+            throw DepartureError.invalidURL
+        }
+        return url
+    }
+
+    private func timeOffsetMinutes(for date: Date) -> Int {
+        let minutes = Int(date.timeIntervalSinceNow / 60)
+        return min(119, max(-120, minutes))
+    }
+
+    private func departureError(for statusCode: Int, data: Data) -> DepartureError {
+        let body = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if statusCode == 401 || statusCode == 403 {
+            return .httpError(statusCode)
+        }
+        if statusCode == 500 && body?.isEmpty != false {
+            return .providerUnavailable
+        }
+        return .httpError(statusCode)
+    }
+
+    private func mapServiceToTrip(service: Huxley2Service, fromStation: String, fromCRS: String, destinationCRS: String?) -> RailTrip? {
         let origin = service.origin?.first?.locationName ?? fromStation
-        let destination = service.destination?.first?.locationName ?? "Unknown"
         let departureTime = service.std ?? "--:--"
         let etd = service.etd ?? ""
+        let targetCRS = destinationCRS?.uppercased()
+        let rawSubsequent = service.subsequentCallingPoints?.first?.callingPoint ?? []
+        let targetCallingPoint = targetCRS.flatMap { crs in
+            rawSubsequent.first { $0.crs?.uppercased() == crs }
+        }
+        let destination = targetCallingPoint?.locationName ?? service.destination?.first?.locationName ?? "Unknown"
 
-        // Calculate estimated arrival from subsequent calling points
         let arrivalTime: String
-        if let callingPoints = service.subsequentCallingPoints?.first?.callingPoint,
-           let lastStop = callingPoints.last {
-            arrivalTime = lastStop.st ?? "--:--"
+        if let targetCallingPoint {
+            arrivalTime = targetCallingPoint.st ?? service.sta ?? "--:--"
+        } else if let lastStop = rawSubsequent.last {
+            arrivalTime = lastStop.st ?? service.sta ?? "--:--"
         } else {
-            arrivalTime = "--:--"
+            arrivalTime = service.sta ?? "--:--"
         }
 
-        // Calculate duration from departure and arrival times
         let duration = calculateDuration(from: departureTime, to: arrivalTime)
-
         let operatorName = service.operator ?? "Unknown"
-        let platform = service.platform
 
-        // Determine status
         let status: String
         if service.isCancelled == true {
             status = "Cancelled"
@@ -174,14 +248,32 @@ actor DepartureService {
             status = "On time"
         } else if etd == "Delayed" {
             status = "Delayed"
-        } else if etd != departureTime && !etd.isEmpty {
+        } else if !etd.isEmpty && etd != departureTime {
             status = "Exp. \(etd)"
         } else {
             status = "On time"
         }
 
-        // Build calling points list
-        let callingPoints: [CallingPoint] = service.subsequentCallingPoints?.first?.callingPoint?.compactMap { cp in
+        // Build calling points starting with origin as first stop
+        var callingPoints: [CallingPoint] = [
+            CallingPoint(
+                stationName: origin,
+                crs: fromCRS,
+                scheduledTime: departureTime,
+                estimatedTime: service.isCancelled == true ? "Cancelled" : (etd.isEmpty ? "On time" : etd),
+                actualTime: nil
+            )
+        ]
+
+        let subsequentSource: [Huxley2CallingPoint]
+        if let targetCRS,
+           let targetIndex = rawSubsequent.firstIndex(where: { $0.crs?.uppercased() == targetCRS }) {
+            subsequentSource = Array(rawSubsequent.prefix(through: targetIndex))
+        } else {
+            subsequentSource = rawSubsequent
+        }
+
+        let subsequent: [CallingPoint] = subsequentSource.compactMap { cp in
             guard let name = cp.locationName, let time = cp.st else { return nil }
             return CallingPoint(
                 stationName: name,
@@ -190,7 +282,9 @@ actor DepartureService {
                 estimatedTime: cp.et,
                 actualTime: cp.at
             )
-        } ?? []
+        }
+
+        callingPoints.append(contentsOf: subsequent)
 
         return RailTrip(
             origin: origin,
@@ -201,9 +295,9 @@ actor DepartureService {
             operatorName: operatorName,
             changeSummary: "Direct",
             price: nil,
-            platform: platform,
+            platform: service.platform,
             status: status,
-            serviceId: service.serviceIdPercentEncoded,
+            serviceId: service.serviceIdUrlSafe ?? service.serviceIdPercentEncoded ?? service.serviceID,
             callingPoints: callingPoints,
             isCancelled: service.isCancelled ?? false,
             cancelReason: service.cancelReason,
@@ -227,9 +321,7 @@ actor DepartureService {
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
 
-        if hours > 0 {
-            return "\(hours) hr \(minutes) min"
-        }
+        if hours > 0 { return "\(hours) hr \(minutes) min" }
         return "\(minutes) min"
     }
 }
@@ -238,18 +330,16 @@ enum DepartureError: LocalizedError {
     case invalidURL
     case invalidResponse
     case httpError(Int)
+    case providerUnavailable
     case noServices
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL:
-            "Invalid station code"
-        case .invalidResponse:
-            "Could not reach the departure service"
-        case .httpError(let code):
-            "Server error (\(code))"
-        case .noServices:
-            "No departures found"
+        case .invalidURL: "Invalid station code"
+        case .invalidResponse: "Could not reach the departure service"
+        case .httpError(let code): "Server error (\(code))"
+        case .providerUnavailable: "The departure service is temporarily unavailable. Please try again."
+        case .noServices: "No departures found"
         }
     }
 }

@@ -255,7 +255,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3G63Q3R53S;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NATIONAL_RAIL_ACCESS_TOKEN = "$(NATIONAL_RAIL_ACCESS_TOKEN)";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "WayPoint uses your location to automatically select the right rail network and route from your current position.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -266,6 +269,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				NATIONAL_RAIL_ACCESS_TOKEN = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.clydelartey.WayPoint;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -287,7 +291,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3G63Q3R53S;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NATIONAL_RAIL_ACCESS_TOKEN = "$(NATIONAL_RAIL_ACCESS_TOKEN)";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "WayPoint uses your location to automatically select the right rail network and route from your current position.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -298,6 +305,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				NATIONAL_RAIL_ACCESS_TOKEN = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.clydelartey.WayPoint;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
