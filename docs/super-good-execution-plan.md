@@ -113,7 +113,14 @@ Also completed the first trip quality slice (Phase 3):
 - Upgraded `TripCard`: badge row, prominent platform pill near the times ("Platform pending" when unknown), cancelled trips shown with strikethrough times, delay/cancel reasons on their own unclamped line, and an inline "Calls at X, Y, Z +n more" preview of intermediate stops.
 - Verified in the simulator against live Euston-Manchester data (Best badge, Platform A pill, calling point preview all rendering).
 
-Still open in Phase 3: "Least risky" tag (needs a reliability heuristic), highlighted skipped/cancelled stops, and the track/save/reverse/official-source actions on cards.
+- Added an "Open official source" button to the service detail sheet using the snapshot's source URL.
+
+Decisions and remaining Phase 3 items:
+
+- Per-card Save/Reverse actions were skipped deliberately: the search card's save action and the commuter board's reverse action already cover them, and repeating them on every card adds noise.
+- "Least risky" tag deferred: it needs delay history or a reliability heuristic we don't have yet (see Later Backlog).
+- Skipped/cancelled stop highlighting deferred until the Huxley calling-point decode exposes per-stop cancellation flags.
+- "Track this train" belongs to Phase 4.
 
 ### 2026-05-22
 
