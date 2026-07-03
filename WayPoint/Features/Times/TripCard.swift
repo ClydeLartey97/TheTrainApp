@@ -9,25 +9,30 @@ import SwiftUI
 
 struct TripCard: View {
     let trip: RailTrip
+    var badges: [TripBadge] = []
     var onViewService: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if !badges.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(badges) { badge in
+                        Text(badge.rawValue)
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(badge.color, in: Capsule())
+                            .accessibilityLabel("\(badge.rawValue): \(badge.explanation)")
+                    }
+                }
+            }
+
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 6) {
-                        Text("\(trip.departureTime) → \(trip.arrivalTime)")
-                            .font(.headline)
-
-                        if trip.isCancelled {
-                            Text("CANCELLED")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.statusSevereDelay, in: Capsule())
-                        }
-                    }
+                    Text("\(trip.departureTime) → \(trip.arrivalTime)")
+                        .font(.headline)
+                        .strikethrough(trip.isCancelled, color: .statusSevereDelay)
 
                     Text("\(trip.origin) to \(trip.destination)")
                         .font(.subheadline)
@@ -37,6 +42,8 @@ struct TripCard: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 5) {
+                    platformPill
+
                     if let price = trip.price {
                         Text(price)
                             .font(.title3.weight(.bold))
@@ -53,12 +60,6 @@ struct TripCard: View {
 
                 Spacer()
 
-                if let platform = trip.platform {
-                    Label("Plat. \(platform)", systemImage: "rectangle.split.3x1")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.waypointTint)
-                }
-
                 if !trip.duration.isEmpty {
                     Text(trip.duration)
                 }
@@ -66,20 +67,29 @@ struct TripCard: View {
             .font(.caption.weight(.medium))
             .foregroundStyle(.secondary)
 
-            if let status = trip.status {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(trip.tripStatus.color)
-                        .frame(width: 8, height: 8)
-                    Text(status)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(trip.tripStatus.color)
+            if let stops = callingPointsPreview {
+                Label(stops, systemImage: "point.topleft.down.curvedto.point.bottomright.up")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
 
-                    if let reason = trip.delayReason ?? trip.cancelReason {
-                        Text("— \(reason)")
+            if let status = trip.status {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(trip.tripStatus.color)
+                            .frame(width: 8, height: 8)
+                        Text(status)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(trip.tripStatus.color)
+                    }
+
+                    if let reason = trip.cancelReason ?? trip.delayReason {
+                        Text(reason)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -99,6 +109,29 @@ struct TripCard: View {
         }
         .padding(20)
         .glassCard()
+    }
+
+    private var platformPill: some View {
+        Text(trip.platform.map { "Platform \($0)" } ?? "Platform pending")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(trip.platform == nil ? Color.secondary : Color.waypointTint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                (trip.platform == nil ? Color.primary.opacity(0.06) : Color.waypointTint.opacity(0.14)),
+                in: Capsule()
+            )
+    }
+
+    /// First few intermediate stops, e.g. "Calls at Watford Junction, Milton Keynes +3 more".
+    private var callingPointsPreview: String? {
+        let intermediate = trip.callingPoints.dropFirst().dropLast()
+        guard !intermediate.isEmpty else { return nil }
+
+        let shown = intermediate.prefix(3).map(\.stationName)
+        let remaining = intermediate.count - shown.count
+        let suffix = remaining > 0 ? " +\(remaining) more" : ""
+        return "Calls at \(shown.joined(separator: ", "))\(suffix)"
     }
 }
 

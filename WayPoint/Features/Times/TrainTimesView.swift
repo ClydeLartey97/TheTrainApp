@@ -494,6 +494,8 @@ struct TrainTimesView: View {
     @ViewBuilder
     private var resultsSection: some View {
         if !viewModel.searchResults.isEmpty {
+            let badges = RailTrip.badges(for: viewModel.searchResults)
+
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Text("Departures")
@@ -513,7 +515,7 @@ struct TrainTimesView: View {
                 }
 
                 ForEach(viewModel.searchResults) { trip in
-                    TripCard(trip: trip) {
+                    TripCard(trip: trip, badges: badges[trip.id] ?? []) {
                         viewModel.showServiceDetail(for: trip)
                     }
                 }

@@ -107,6 +107,14 @@ Completed the first trust layer slice (Phase 2):
 
 Phase 2 acceptance criteria are met on the Times, Underground, and Live Map surfaces.
 
+Also completed the first trip quality slice (Phase 3):
+
+- Added deterministic ranking badges (`TripRanking.swift`): Best = arrives first, Fastest = shortest journey (only when 2+ services are running and Best doesn't already cover it), plus Delayed and Cancelled. Each badge has an explanation used as its accessibility label.
+- Upgraded `TripCard`: badge row, prominent platform pill near the times ("Platform pending" when unknown), cancelled trips shown with strikethrough times, delay/cancel reasons on their own unclamped line, and an inline "Calls at X, Y, Z +n more" preview of intermediate stops.
+- Verified in the simulator against live Euston-Manchester data (Best badge, Platform A pill, calling point preview all rendering).
+
+Still open in Phase 3: "Least risky" tag (needs a reliability heuristic), highlighted skipped/cancelled stops, and the track/save/reverse/official-source actions on cards.
+
 ### 2026-05-22
 
 Completed the first commuter foundation slice:
