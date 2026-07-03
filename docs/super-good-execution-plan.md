@@ -88,6 +88,25 @@ The work should happen in phases:
 
 ## Execution Log
 
+### 2026-07-03
+
+Completed the first trust layer slice (Phase 2):
+
+- Added `LiveDataSnapshot` freshness/provenance metadata and a `DepartureBoardSnapshot` wrapper.
+- `DepartureService.fetchDepartures` now returns trips plus metadata ("National Rail via Huxley2", 2-minute TTL).
+- `SearchViewModel` keeps the previous board on a failed same-route refresh, re-labeled as fallback, instead of blanking results.
+- Added a shared `LiveFreshnessRow` component: updated time, source label, refresh button, and stale/fallback warnings.
+- Applied it to the Times departures list and the metro Lines section.
+- `SubwayMapView` tracks live feed metadata per system (`MetroSystem.liveSourceName`) and keeps last-good statuses/arrivals on refresh errors.
+- Removed stray duplicate " 2" files left by a file sync.
+- Added pull-to-refresh on the Times tab and an updated/source footer on the service detail sheet.
+- Added a "Preview data" warning banner on the Live Map so sample train positions are never presented as live.
+- Fixed a real TfL arrivals bug found during verification: the decoder required fields TfL sometimes omits (destinationName etc.), which silently killed the whole live refresh. Decoding is now tolerant, and line statuses/arrivals fail independently.
+- Added a DEBUG-only launch-environment harness for automated simulator verification: WAYPOINT_DEBUG_TAB (initial tab), WAYPOINT_DEBUG_AUTOSEARCH ("EUS>MAN"), WAYPOINT_DEBUG_SCROLL (lines/arrivals). Pass via SIMCTL_CHILD_* with simctl launch.
+- Verified end-to-end in the iOS Simulator (iPhone 17 Pro + iPad Pro 13): live Euston-Manchester departures with freshness row, stale state appearing after the 2-minute TTL, TfL line statuses with "Updated just now / TfL Unified API", real arrival predictions, and the Live Map preview banner.
+
+Phase 2 acceptance criteria are met on the Times, Underground, and Live Map surfaces.
+
 ### 2026-05-22
 
 Completed the first commuter foundation slice:

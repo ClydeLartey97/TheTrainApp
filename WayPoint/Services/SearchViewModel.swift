@@ -20,6 +20,7 @@ final class SearchViewModel {
     var isShowingDestinationSuggestions = false
 
     var searchResults: [RailTrip] = []
+    var boardMetadata: LiveDataSnapshot?
     var isSearching = false
     var hasSearched = false
     var errorMessage: String?
@@ -37,6 +38,7 @@ final class SearchViewModel {
 
     func reset() {
         searchResults = []
+        boardMetadata = nil
         hasSearched = false
         errorMessage = nil
         lastCompletedRouteSelection = nil
@@ -138,20 +140,21 @@ final class SearchViewModel {
 
         isSearching = true
         errorMessage = nil
-        lastCompletedRouteSelection = nil
-        searchResults = []
         defer { isSearching = false }
 
+        let isSameRoute = lastCompletedRouteSelection?.matches(origin: originStation, destination: destStation) == true
+
         do {
-            let trips = try await service.fetchDepartures(
+            let board = try await service.fetchDepartures(
                 from: originStation.crs,
                 to: destStation?.crs,
                 date: departureDate
             )
-            searchResults = trips
+            searchResults = board.trips
+            boardMetadata = board.metadata
             hasSearched = true
             lastCompletedRouteSelection = RouteStationSelection(origin: originStation, destination: destStation)
-            if trips.isEmpty {
+            if board.trips.isEmpty {
                 var msg = "No departures found from \(origin)"
                 if let dest = destStation { msg += " to \(dest.name)" }
                 errorMessage = msg
@@ -159,6 +162,15 @@ final class SearchViewModel {
         } catch {
             errorMessage = error.localizedDescription
             hasSearched = true
+            // Keep the previous board visible when refreshing the same route,
+            // but flag it as fallback so the UI shows it is no longer live.
+            if isSameRoute, !searchResults.isEmpty {
+                boardMetadata = boardMetadata?.asFallback()
+            } else {
+                searchResults = []
+                boardMetadata = nil
+                lastCompletedRouteSelection = nil
+            }
         }
     }
 

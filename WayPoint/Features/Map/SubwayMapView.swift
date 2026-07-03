@@ -18,6 +18,7 @@ struct SubwayMapView: View {
     @State private var networkError: String?
     @State private var liveStatuses: [MetroLineLiveStatus] = []
     @State private var arrivals: [MetroArrivalPrediction] = []
+    @State private var liveMetadata: LiveDataSnapshot?
     @State private var isRefreshing = false
     @State private var liveError: String?
     @State private var selectedLineID: String?
@@ -43,36 +44,41 @@ struct SubwayMapView: View {
     }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
-                header
-                systemPicker
+        ScrollViewReader { scrollProxy in
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    header
+                    systemPicker
 
-                if selectedSystem.isMapReady {
-                    routePlanner
-                    metroMapCard
-                    linesSection
-                    nextArrivalsSection
-                } else {
-                    comingSoonCard
+                    if selectedSystem.isMapReady {
+                        routePlanner
+                        metroMapCard
+                        linesSection
+                            .id("lines")
+                        nextArrivalsSection
+                            .id("arrivals")
+                    } else {
+                        comingSoonCard
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 22)
+                .padding(.bottom, 120)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 22)
-            .padding(.bottom, 120)
-        }
-        .background { WaypointGradient() }
-        .sheet(isPresented: $isMapExpanded) {
-            expandedMapSheet
-        }
-        .onAppear {
-            configureDefaults()
-            locationManager.requestOnce()
-        }
-        .task(id: selectedSystem.id) {
-            configureDefaults()
-            await loadNetwork()
-            await refreshLiveData()
+            .background { WaypointGradient() }
+            .sheet(isPresented: $isMapExpanded) {
+                expandedMapSheet
+            }
+            .onAppear {
+                configureDefaults()
+                locationManager.requestOnce()
+            }
+            .task(id: selectedSystem.id) {
+                configureDefaults()
+                await loadNetwork()
+                await refreshLiveData()
+                scrollToDebugSectionIfNeeded(scrollProxy)
+            }
         }
         .onChange(of: selectedNetwork) { _, newValue in
             setSystem(MetroSystem.preferred(for: newValue))
@@ -483,6 +489,14 @@ struct SubwayMapView: View {
             if isRefreshing && lineStatusRows.isEmpty {
                 ProgressView("Loading official live feed")
                     .font(.caption)
+            }
+
+            if let liveMetadata {
+                LiveFreshnessRow(
+                    metadata: liveMetadata,
+                    isRefreshing: isRefreshing,
+                    onRefresh: { Task { await refreshLiveData() } }
+                )
             }
 
             ForEach(lineStatusRows) { row in
@@ -922,6 +936,18 @@ struct SubwayMapView: View {
         focusedJourneyField = nil
     }
 
+    /// Launch-environment hook so automated simulator runs can screenshot
+    /// below-the-fold sections (DEBUG only): WAYPOINT_DEBUG_SCROLL = lines | arrivals.
+    private func scrollToDebugSectionIfNeeded(_ proxy: ScrollViewProxy) {
+        #if DEBUG
+        guard let section = ProcessInfo.processInfo.environment["WAYPOINT_DEBUG_SCROLL"],
+              section == "lines" || section == "arrivals" else { return }
+        withAnimation {
+            proxy.scrollTo(section, anchor: .top)
+        }
+        #endif
+    }
+
     private func setSystem(_ system: MetroSystem) {
         fromSearchTask?.cancel()
         toSearchTask?.cancel()
@@ -933,6 +959,7 @@ struct SubwayMapView: View {
             networkError = nil
             liveStatuses = []
             arrivals = []
+            liveMetadata = nil
             liveError = nil
             selectedLineID = nil
             fromPlace = nil
@@ -994,6 +1021,7 @@ struct SubwayMapView: View {
         guard selectedSystem.isLiveAPIReady else {
             liveStatuses = []
             arrivals = []
+            liveMetadata = nil
             liveError = "Official live feed integration queued for \(selectedSystem.displayName)."
             return
         }
@@ -1002,15 +1030,23 @@ struct SubwayMapView: View {
         liveError = nil
         defer { isRefreshing = false }
 
+        // Statuses and arrivals fail independently so one broken feed
+        // doesn't blank the other. Previous data stays on screen, flagged
+        // as fallback, rather than disappearing on a failed refresh.
         do {
-            async let fetchedStatuses = MetroLiveService.shared.fetchLineStatuses(for: selectedSystem)
-            async let fetchedArrivals = MetroLiveService.shared.fetchArrivals(for: selectedSystem)
-            liveStatuses = try await fetchedStatuses
-            arrivals = try await fetchedArrivals
+            liveStatuses = try await MetroLiveService.shared.fetchLineStatuses(for: selectedSystem)
+            liveMetadata = LiveDataSnapshot(sourceName: selectedSystem.liveSourceName, timeToLive: 90)
         } catch {
-            liveStatuses = []
-            arrivals = []
             liveError = error.localizedDescription
+            liveMetadata = liveStatuses.isEmpty ? nil : liveMetadata?.asFallback()
+        }
+
+        do {
+            arrivals = try await MetroLiveService.shared.fetchArrivals(for: selectedSystem)
+        } catch {
+            if arrivals.isEmpty {
+                liveError = liveError ?? "Arrival predictions are temporarily unavailable."
+            }
         }
     }
 

@@ -106,6 +106,7 @@ struct TripCard: View {
 
 struct ServiceDetailSheet: View {
     let trip: RailTrip
+    var metadata: LiveDataSnapshot? = nil
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -233,6 +234,17 @@ struct ServiceDetailSheet: View {
                         }
                         .padding(16)
                         .background(Color.waypointTint.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+
+                    if let metadata {
+                        HStack(spacing: 8) {
+                            Image(systemName: "dot.radiowaves.left.and.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(metadata.isStale() || metadata.isFallback ? Color.statusMinorDelay : Color.statusOnTime)
+                            Text("\(metadata.updatedText()) · \(metadata.sourceName)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .padding(20)

@@ -10,6 +10,11 @@ import Foundation
 struct RouteStationSelection: Hashable {
     let origin: Station
     let destination: Station?
+
+    func matches(origin other: Station, destination otherDestination: Station?) -> Bool {
+        origin.crs.uppercased() == other.crs.uppercased()
+            && destination?.crs.uppercased() == otherDestination?.crs.uppercased()
+    }
 }
 
 struct SavedRoute: Codable, Identifiable, Hashable {

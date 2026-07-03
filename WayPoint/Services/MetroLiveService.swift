@@ -160,9 +160,9 @@ actor MetroLiveService {
             .map { prediction in
                 MetroArrivalPrediction(
                     id: prediction.id,
-                    lineName: prediction.lineName,
-                    stationName: prediction.stationName,
-                    destinationName: prediction.destinationName,
+                    lineName: prediction.lineName ?? prediction.lineId ?? "Underground",
+                    stationName: prediction.stationName ?? "Unknown station",
+                    destinationName: prediction.destinationName ?? prediction.towards ?? "Check station board",
                     platformName: prediction.platformName,
                     timeToStation: prediction.timeToStation
                 )
@@ -408,11 +408,15 @@ private struct TfLLineStatus: Decodable {
     let reason: String?
 }
 
+// Most fields are optional because TfL omits them on some predictions
+// (e.g. destinationName on Circle line trains).
 private struct TfLArrivalPrediction: Decodable {
     let id: String
-    let lineName: String
-    let stationName: String
-    let destinationName: String
+    let lineId: String?
+    let lineName: String?
+    let stationName: String?
+    let destinationName: String?
     let platformName: String?
+    let towards: String?
     let timeToStation: Int
 }

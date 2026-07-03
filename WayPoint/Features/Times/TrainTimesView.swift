@@ -35,13 +35,18 @@ struct TrainTimesView: View {
             .padding(.bottom, 120)
         }
         .background { WaypointGradient() }
+        .refreshable {
+            guard viewModel.hasSearched else { return }
+            await viewModel.searchDepartures()
+        }
+        .onAppear { runDebugAutosearchIfNeeded() }
         .onChange(of: selectedNetwork) { _, _ in
             viewModel.reset()
             departureDate = viewModel.departureDate
         }
         .sheet(isPresented: $viewModel.isShowingServiceDetail) {
             if let trip = viewModel.selectedTrip {
-                ServiceDetailSheet(trip: trip)
+                ServiceDetailSheet(trip: trip, metadata: viewModel.boardMetadata)
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
@@ -455,6 +460,27 @@ struct TrainTimesView: View {
         searchCurrentRoute()
     }
 
+    /// Launch-environment hook so automated simulator runs can exercise the
+    /// full search flow (DEBUG only): WAYPOINT_DEBUG_AUTOSEARCH = "EUS>MAN" or "EUS".
+    private func runDebugAutosearchIfNeeded() {
+        #if DEBUG
+        guard let spec = ProcessInfo.processInfo.environment["WAYPOINT_DEBUG_AUTOSEARCH"],
+              !spec.isEmpty, !viewModel.hasSearched else { return }
+
+        let codes = spec.split(separator: ">").map { String($0).uppercased() }
+        guard let originCode = codes.first,
+              let origin = StationRepository.shared.resolveStation(query: originCode) else { return }
+        let destination = codes.dropFirst().first.flatMap {
+            StationRepository.shared.resolveStation(query: $0)
+        }
+
+        viewModel.applyRoute(
+            SavedRoute(origin: origin, destination: destination, network: selectedNetwork)
+        )
+        searchCurrentRoute()
+        #endif
+    }
+
     private func runReversedRoute(_ route: SavedRoute) {
         guard let reversedRoute = route.reversedForSearch() else { return }
         departureDate = .now
@@ -476,6 +502,14 @@ struct TrainTimesView: View {
                     Text("\(viewModel.searchResults.count) found")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
+                }
+
+                if let metadata = viewModel.boardMetadata {
+                    LiveFreshnessRow(
+                        metadata: metadata,
+                        isRefreshing: viewModel.isSearching,
+                        onRefresh: { searchCurrentRoute() }
+                    )
                 }
 
                 ForEach(viewModel.searchResults) { trip in

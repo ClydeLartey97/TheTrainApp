@@ -96,7 +96,7 @@ actor DepartureService {
         self.session = URLSession(configuration: config)
     }
 
-    func fetchDepartures(from originCRS: String, to destinationCRS: String? = nil, date: Date = .now) async throws -> [RailTrip] {
+    func fetchDepartures(from originCRS: String, to destinationCRS: String? = nil, date: Date = .now) async throws -> DepartureBoardSnapshot {
         let url = try departureURL(from: originCRS, to: destinationCRS, date: date)
 
         let (data, response) = try await session.data(from: url)
@@ -110,15 +110,21 @@ actor DepartureService {
         }
 
         let huxleyResponse = try JSONDecoder().decode(Huxley2Response.self, from: data)
+        let metadata = LiveDataSnapshot(
+            sourceName: "National Rail via Huxley2",
+            sourceURL: URL(string: "https://www.nationalrail.co.uk"),
+            timeToLive: 120
+        )
 
         guard let services = huxleyResponse.trainServices, !services.isEmpty else {
-            return []
+            return DepartureBoardSnapshot(trips: [], metadata: metadata)
         }
 
         let stationName = huxleyResponse.locationName ?? originCRS
-        return services.compactMap { service in
+        let trips = services.compactMap { service in
             mapServiceToTrip(service: service, fromStation: stationName, fromCRS: originCRS, destinationCRS: destinationCRS)
         }
+        return DepartureBoardSnapshot(trips: trips, metadata: metadata)
     }
 
     func searchStations(query: String) async throws -> [Station] {

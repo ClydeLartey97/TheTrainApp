@@ -194,6 +194,16 @@ enum MetroSystem: String, CaseIterable, Identifiable {
         self == .londonUnderground || self == .nycSubway || self == .lirr || self == .metroNorth
     }
 
+    var liveSourceName: String {
+        switch self {
+        case .londonUnderground: "TfL Unified API"
+        case .nycSubway: "MTA GTFS-Realtime"
+        case .lirr: "MTA LIRR GTFS-Realtime"
+        case .metroNorth: "MTA Metro-North GTFS-Realtime"
+        default: "Official feed not connected"
+        }
+    }
+
     var defaultRegion: MKCoordinateRegion {
         switch self {
         case .londonUnderground:

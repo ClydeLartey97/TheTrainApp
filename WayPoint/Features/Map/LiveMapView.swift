@@ -73,7 +73,27 @@ struct LiveMapView: View {
             Text("Tap the map to expand it. Pick a region to focus your view. The summary below reflects tracked services.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+
+            if !selectedNetwork.trains.isEmpty {
+                previewDataBanner
+            }
         }
+    }
+
+    private var previewDataBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(Color.statusMinorDelay)
+
+            Text("Preview data — train positions shown here are illustrative, not live. Official vehicle feeds arrive in a later release.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.statusMinorDelay.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: - Controls
