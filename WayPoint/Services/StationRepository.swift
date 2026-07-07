@@ -196,6 +196,42 @@ struct StationRepository {
         Station(name: "Solihull", crs: "SOL"),
     ]
 
+    /// Common spoken names that differ from the official station name (Phase 6).
+    /// Keys are matched with the same normalization as station names, so
+    /// apostrophes and spacing don't matter ("King's Cross" == "kings cross").
+    static let aliases: [String: String] = [
+        "kings cross": "KGX",
+        "kings x": "KGX",
+        "london kx": "KGX",
+        "st pancras": "STP",
+        "saint pancras": "STP",
+        "new street": "BHM",
+        "birmingham new st": "BHM",
+        "piccadilly": "MAN",
+        "manchester picc": "MAN",
+        "lime street": "LIV",
+        "temple meads": "BRI",
+        "waverley": "EDB",
+        "paddington": "PAD",
+        "waterloo": "WAT",
+        "victoria": "VIC",
+        "euston": "EUS",
+        "liverpool street": "LST",
+        "charing cross": "CHX",
+        "marylebone": "MYB",
+        "cannon street": "CST",
+        "fenchurch street": "FST",
+        "blackfriars": "BFR",
+        "gatwick": "GTW",
+        "heathrow": "HWV",
+        "stansted": "SSD",
+    ]
+
+    /// Alias entries resolved against the corpus, normalized once.
+    private static let normalizedAliases: [(alias: String, crs: String)] = {
+        aliases.map { (Self.normalize($0.key), $0.value.uppercased()) }
+    }()
+
     /// Search stations by name prefix (case-insensitive)
     func search(query: String) -> [Station] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -203,8 +239,16 @@ struct StationRepository {
         let lowered = normalized(trimmed)
         let uppercased = trimmed.uppercased()
 
+        let aliasCRSMatches = Set(
+            Self.normalizedAliases
+                .filter { $0.alias.hasPrefix(lowered) || $0.alias == lowered }
+                .map(\.crs)
+        )
+
         return stations.filter { station in
-            normalized(station.name).contains(lowered) || station.crs.hasPrefix(uppercased)
+            normalized(station.name).contains(lowered)
+                || station.crs.hasPrefix(uppercased)
+                || aliasCRSMatches.contains(station.crs)
         }
         .sorted { a, b in
             let aCRS = a.crs == uppercased
@@ -230,6 +274,13 @@ struct StationRepository {
             return station
         }
 
+        // Exact alias hit ("Kings Cross" → KGX) resolves without ambiguity.
+        let lowered = normalized(trimmed)
+        if let aliasCRS = Self.normalizedAliases.first(where: { $0.alias == lowered })?.crs,
+           let station = findStation(crs: aliasCRS) {
+            return station
+        }
+
         let matches = search(query: trimmed)
         return matches.count == 1 ? matches[0] : nil
     }
@@ -247,6 +298,10 @@ struct StationRepository {
     }
 
     private func normalized(_ value: String) -> String {
+        Self.normalize(value)
+    }
+
+    static func normalize(_ value: String) -> String {
         value
             .lowercased()
             .folding(options: [.diacriticInsensitive, .widthInsensitive], locale: .current)

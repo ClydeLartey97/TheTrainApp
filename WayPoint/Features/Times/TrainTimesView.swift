@@ -13,11 +13,15 @@ struct TrainTimesView: View {
     @State private var viewModel = SearchViewModel()
     @State private var routeStore = RouteStore()
     @Environment(\.openURL) private var openURL
+    @Environment(JourneyTracker.self) private var journeyTracker
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 22) {
                 header
+                if journeyTracker.isTracking {
+                    ActiveJourneyCard()
+                }
                 networkCard
                 if selectedNetwork.hasLiveDepartures {
                     commuterBoard
@@ -449,7 +453,20 @@ struct TrainTimesView: View {
                     routeStore.recordSearch(selection, network: selectedNetwork)
                 }
             }
+            runDebugAutotrackIfNeeded()
         }
+    }
+
+    /// Launch-environment hook so automated simulator runs can exercise journey
+    /// tracking (DEBUG only): WAYPOINT_DEBUG_TRACK = "1" tracks the first result.
+    private func runDebugAutotrackIfNeeded() {
+        #if DEBUG
+        guard ProcessInfo.processInfo.environment["WAYPOINT_DEBUG_TRACK"] == "1",
+              !journeyTracker.isTracking,
+              let first = viewModel.searchResults.first(where: { $0.serviceId != nil && !$0.isCancelled })
+        else { return }
+        journeyTracker.track(first)
+        #endif
     }
 
     private func runRoute(_ route: SavedRoute) {
@@ -648,4 +665,5 @@ struct TrainTimesView: View {
         selectedNetwork: .constant(.ukNationalRail),
         departureDate: .constant(.now)
     )
+    .environment(JourneyTracker())
 }

@@ -81,6 +81,30 @@ nonisolated struct Huxley2ServiceDetail: Decodable {
     let subsequentCallingPoints: [Huxley2CallingPointList]?
 }
 
+// MARK: - Status Mapping
+
+/// Shared mapping from Huxley's std/etd fields to WayPoint's display status,
+/// used by both the departure board and journey tracking so they can never disagree.
+nonisolated enum HuxleyStatus {
+    static func statusText(std: String?, etd: String?, isCancelled: Bool?) -> String {
+        if isCancelled == true { return "Cancelled" }
+        let etd = etd ?? ""
+        if etd == "On time" || etd.isEmpty || etd == std { return "On time" }
+        if etd == "Delayed" { return "Delayed" }
+        return "Exp. \(etd)"
+    }
+
+    /// Minutes late implied by an "Exp. HH:mm" estimate, or nil when unknown.
+    static func delayMinutes(std: String?, etd: String?) -> Int? {
+        guard let std, let etd,
+              let scheduled = RailTrip.minutes(from: std),
+              let estimated = RailTrip.minutes(from: etd) else { return nil }
+        var delta = estimated - scheduled
+        if delta < -12 * 60 { delta += 24 * 60 }
+        return delta
+    }
+}
+
 // MARK: - Departure Service
 
 actor DepartureService {
@@ -247,18 +271,7 @@ actor DepartureService {
         let duration = calculateDuration(from: departureTime, to: arrivalTime)
         let operatorName = service.operator ?? "Unknown"
 
-        let status: String
-        if service.isCancelled == true {
-            status = "Cancelled"
-        } else if etd == "On time" {
-            status = "On time"
-        } else if etd == "Delayed" {
-            status = "Delayed"
-        } else if !etd.isEmpty && etd != departureTime {
-            status = "Exp. \(etd)"
-        } else {
-            status = "On time"
-        }
+        let status = HuxleyStatus.statusText(std: departureTime, etd: etd, isCancelled: service.isCancelled)
 
         // Build calling points starting with origin as first stop
         var callingPoints: [CallingPoint] = [

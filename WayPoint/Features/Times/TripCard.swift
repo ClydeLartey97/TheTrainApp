@@ -142,6 +142,7 @@ struct ServiceDetailSheet: View {
     var metadata: LiveDataSnapshot? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(JourneyTracker.self) private var journeyTracker
 
     var body: some View {
         NavigationStack {
@@ -178,6 +179,10 @@ struct ServiceDetailSheet: View {
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(trip.tripStatus.color.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+
+                    if trip.serviceId != nil && !trip.isCancelled {
+                        trackButton
                     }
 
                     // Delay / cancel reason
@@ -300,6 +305,7 @@ struct ServiceDetailSheet: View {
                 .padding(20)
             }
             .navigationTitle("Service details")
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: journeyTracker.isTracking(serviceId: trip.serviceId))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -310,6 +316,44 @@ struct ServiceDetailSheet: View {
         }
     }
 
+    /// Starts or stops journey tracking for this service (Phase 4).
+    private var trackButton: some View {
+        let isTrackingThis = journeyTracker.isTracking(serviceId: trip.serviceId)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            Button {
+                if isTrackingThis {
+                    journeyTracker.stopTracking()
+                } else {
+                    journeyTracker.track(trip)
+                }
+            } label: {
+                Label(
+                    isTrackingThis ? "Stop tracking" : "Track this train",
+                    systemImage: isTrackingThis ? "location.slash" : "location.fill.viewfinder"
+                )
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(
+                    isTrackingThis ? Color.primary.opacity(0.06) : Color.waypointTint,
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                )
+                .foregroundStyle(isTrackingThis ? Color.secondary : Color.white)
+            }
+            .buttonStyle(.plain)
+
+            if isTrackingThis {
+                Text("You'll be alerted about cancellation, platform changes, and new delays.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else if journeyTracker.isTracking {
+                Text("Tracking this train replaces your current tracked journey.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
 }
 
 #Preview {

@@ -13,6 +13,7 @@ struct AppShellView: View {
     @State private var departureDate = Date.now
     @State private var mapRegion = RailNetwork.ukNationalRail.defaultRegion
     @State private var locationManager = LocationManager()
+    @State private var journeyTracker = JourneyTracker()
     @State private var selectedTab = AppShellView.initialTab
 
     var body: some View {
@@ -36,6 +37,7 @@ struct AppShellView: View {
             }
         }
         .tint(.waypointTint)
+        .environment(journeyTracker)
         .onAppear {
             mapRegion = selectedNetwork.defaultRegion
             locationManager.requestOnce()

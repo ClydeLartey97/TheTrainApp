@@ -74,7 +74,7 @@ The work should happen in phases:
 3. Trip quality.
    Improve trip cards with best/fastest/risk labels, stronger platform display, disruption reasons, and trackable journeys.
 
-4. Active journey and alerts.
+4. Active journey and alerts. (First slice done 2026-07-07: tracking, local notifications, monitoring. Live Activity still open.)
    Add tracking, local notifications, Live Activity, and platform/delay/cancellation monitoring.
 
 5. Provider architecture.
@@ -87,6 +87,37 @@ The work should happen in phases:
    Add unit tests, UI smoke tests, offline states, accessibility checks, privacy strings, and App Store readiness.
 
 ## Execution Log
+
+### 2026-07-07
+
+Completed the first active journey slice (Phase 4):
+
+- Added `TrackedJourney` (persisted to `UserDefaults`) with per-alert dedupe state so a relaunch never re-fires the same notification.
+- Added `JourneyTracker`: polls the Huxley service detail endpoint every 60s while the app runs, resumes tracking across launches, auto-expires 30 minutes after scheduled arrival, and handles journeys that cross midnight.
+- Local notifications (permission-gated, requested on first track and re-requested on resume if unanswered): cancellation (with reason), platform announced/changed, new delay ≥ 5 min or "Delayed" (with reason), plus a one-shot "departs in 10 minutes" reminder scheduled up front.
+- Notifications present as banners while the app is foregrounded via a `UNUserNotificationCenterDelegate`.
+- "Track this train" / "Stop tracking" button on the service detail sheet (hidden for cancelled services); copy warns when tracking replaces the current journey.
+- Pinned `ActiveJourneyCard` at the top of the Times tab: times, route, operator, platform pill, live status color, disruption reason, manual refresh, honest "last update failed" state, and a notifications-off hint when permission is denied.
+- Extracted `HuxleyStatus` so the departure board and the tracker map std/etd to display status identically.
+- Fixed a stop-tracking race the UI test caught: an in-flight `refresh()` could write the journey back after `stopTracking()` cleared it, resurrecting the dismissed card.
+- New DEBUG harness hook: WAYPOINT_DEBUG_TRACK=1 auto-tracks the first trackable result after autosearch.
+
+Completed the first release-readiness slice (Phase 7):
+
+- Added `WayPointTests` (unit, Swift Testing) and `WayPointUITests` (XCUITest) targets plus a shared scheme with both testables.
+- 38 unit tests covering `StationRepository` search/resolve/aliases, `TripBadge` ranking determinism (incl. overnight arrivals), `RouteStore` persistence/caps/network scoping, `TrackedJourney` date resolution/expiry/JSON round-trip, and `HuxleyStatus` mapping. All passing.
+- 3 UI smoke tests: launch shell, network switcher → coming-soon market, and the full tracked-journey flow (auto-search, accept the real notification permission alert via springboard, assert the tracking card, stop tracking). The journey test skips honestly when the live board is empty overnight.
+
+Phase 6 slice:
+
+- Added a station alias layer to `StationRepository` ("King's Cross"/"Kings Cross" → KGX, "New Street" → BHM, "Piccadilly" → MAN, "St Pancras" → STP, airport shorthands, etc.). Exact alias hits resolve unambiguously; prefix hits join search suggestions.
+
+Verified in the iOS Simulator (iPhone 17 Pro): tracked a live 04:30 Victoria → Gatwick Southern service end to end — permission prompt, pinned card with live "On time" status, updated-time/source footer, persistence across relaunch, and stop tracking.
+
+Phase 4 decisions and deferrals:
+
+- Background polling (BGTaskScheduler) and Live Activities/Dynamic Island deferred: both need entitlement/extension work that deserves its own slice; the scheduled departure reminder already fires while backgrounded.
+- In-sheet service detail refresh deferred; the tracking card now provides per-service live refresh.
 
 ### 2026-07-03
 
