@@ -39,6 +39,37 @@ final class WayPointUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Open official ticket site"].exists)
     }
 
+    /// Station map smoke: land on the map tab, tap a station pin, and verify
+    /// its live departure board sheet opens with the freshness row.
+    func testStationMapOpensLiveBoard() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment = ["WAYPOINT_DEBUG_TAB": "livemap"]
+        app.launch()
+
+        // Decline location so the fresh simulator can't auto-switch away from UK Rail.
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let dontAllow = springboard.buttons["Don't Allow"]
+        if dontAllow.waitForExistence(timeout: 8) {
+            dontAllow.tap()
+        }
+
+        // Map annotations can surface as buttons or generic elements depending
+        // on how MapKit wraps them — accept either.
+        let pinPredicate = NSPredicate(format: "identifier BEGINSWITH 'station-pin-'")
+        var pin = app.buttons.matching(pinPredicate).firstMatch
+        if !pin.waitForExistence(timeout: 15) {
+            pin = app.descendants(matching: .any).matching(pinPredicate).firstMatch
+            XCTAssertTrue(pin.waitForExistence(timeout: 10), app.debugDescription)
+        }
+        pin.tap()
+
+        // The board sheet shows the trust row (or an honest error) plus Done.
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 10))
+        let boardLoaded = app.staticTexts["National Rail via Huxley2"].waitForExistence(timeout: 20)
+            || app.staticTexts["Couldn't load departures"].exists
+        XCTAssertTrue(boardLoaded)
+    }
+
     /// Full Phase 4 smoke: auto-search a route with overnight service, auto-track
     /// the first result, accept the notification permission prompt, and verify
     /// the pinned tracking card. Skips instead of failing when the live board is

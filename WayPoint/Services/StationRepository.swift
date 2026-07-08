@@ -5,196 +5,40 @@
 //  Created by Clyde Lartey on 11/04/2026.
 //
 
+import CoreLocation
 import Foundation
 
-struct Station: Identifiable, Hashable {
+nonisolated struct Station: Identifiable, Hashable, Codable {
     var id: String { crs }
     let name: String
     let crs: String // Computer Reservation System code
+    var latitude: Double?
+    var longitude: Double?
+
+    init(name: String, crs: String, latitude: Double? = nil, longitude: Double? = nil) {
+        self.name = name
+        self.crs = crs
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+
+    var coordinate: CLLocationCoordinate2D? {
+        guard let latitude, let longitude else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
 }
 
 struct StationRepository {
     static let shared = StationRepository()
 
-    let stations: [Station] = [
-        // London Terminals
-        Station(name: "London Paddington", crs: "PAD"),
-        Station(name: "London Waterloo", crs: "WAT"),
-        Station(name: "London Victoria", crs: "VIC"),
-        Station(name: "London Euston", crs: "EUS"),
-        Station(name: "London Kings Cross", crs: "KGX"),
-        Station(name: "London St Pancras International", crs: "STP"),
-        Station(name: "London Liverpool Street", crs: "LST"),
-        Station(name: "London Bridge", crs: "LBG"),
-        Station(name: "London Charing Cross", crs: "CHX"),
-        Station(name: "London Marylebone", crs: "MYB"),
-        Station(name: "London Cannon Street", crs: "CST"),
-        Station(name: "London Fenchurch Street", crs: "FST"),
-        Station(name: "London Blackfriars", crs: "BFR"),
+    /// The full national corpus, loaded once from the bundled dataset
+    /// (2,600+ stations with coordinates). Falls back to a minimal built-in
+    /// list if the resource ever fails to decode, so search never goes dark.
+    let stations: [Station]
 
-        // Major Cities
-        Station(name: "Oxford", crs: "OXF"),
-        Station(name: "Reading", crs: "RDG"),
-        Station(name: "Birmingham New Street", crs: "BHM"),
-        Station(name: "Birmingham Moor Street", crs: "BMO"),
-        Station(name: "Manchester Piccadilly", crs: "MAN"),
-        Station(name: "Manchester Victoria", crs: "MCV"),
-        Station(name: "Manchester Oxford Road", crs: "MCO"),
-        Station(name: "Leeds", crs: "LDS"),
-        Station(name: "Sheffield", crs: "SHF"),
-        Station(name: "Bristol Temple Meads", crs: "BRI"),
-        Station(name: "Bristol Parkway", crs: "BPW"),
-        Station(name: "Edinburgh Waverley", crs: "EDB"),
-        Station(name: "Glasgow Central", crs: "GLC"),
-        Station(name: "Glasgow Queen Street", crs: "GLQ"),
-        Station(name: "Liverpool Lime Street", crs: "LIV"),
-        Station(name: "Newcastle", crs: "NCL"),
-        Station(name: "York", crs: "YRK"),
-        Station(name: "Nottingham", crs: "NOT"),
-        Station(name: "Leicester", crs: "LEI"),
-        Station(name: "Cambridge", crs: "CBG"),
-        Station(name: "Norwich", crs: "NRW"),
-        Station(name: "Ipswich", crs: "IPS"),
-        Station(name: "Peterborough", crs: "PBO"),
-        Station(name: "Cardiff Central", crs: "CDF"),
-        Station(name: "Swansea", crs: "SWA"),
-        Station(name: "Newport", crs: "NWP"),
-        Station(name: "Plymouth", crs: "PLY"),
-        Station(name: "Exeter St Davids", crs: "EXD"),
-        Station(name: "Southampton Central", crs: "SOU"),
-        Station(name: "Portsmouth Harbour", crs: "PMH"),
-        Station(name: "Brighton", crs: "BTN"),
-        Station(name: "Bournemouth", crs: "BMH"),
-        Station(name: "Bath Spa", crs: "BTH"),
-        Station(name: "Swindon", crs: "SWI"),
-        Station(name: "Coventry", crs: "COV"),
-        Station(name: "Wolverhampton", crs: "WVH"),
-        Station(name: "Derby", crs: "DBY"),
-        Station(name: "Stoke-on-Trent", crs: "SOT"),
-        Station(name: "Preston", crs: "PRE"),
-        Station(name: "Lancaster", crs: "LAN"),
-        Station(name: "Carlisle", crs: "CAR"),
-        Station(name: "Aberdeen", crs: "ABD"),
-        Station(name: "Dundee", crs: "DEE"),
-        Station(name: "Inverness", crs: "INV"),
-        Station(name: "Perth", crs: "PTH"),
-        Station(name: "Stirling", crs: "STG"),
-
-        // Commuter / Regional
-        Station(name: "Guildford", crs: "GLD"),
-        Station(name: "Woking", crs: "WOK"),
-        Station(name: "Basingstoke", crs: "BSK"),
-        Station(name: "Winchester", crs: "WIN"),
-        Station(name: "Salisbury", crs: "SAL"),
-        Station(name: "Cheltenham Spa", crs: "CNM"),
-        Station(name: "Gloucester", crs: "GCR"),
-        Station(name: "Worcester Shrub Hill", crs: "WOS"),
-        Station(name: "Hereford", crs: "HFD"),
-        Station(name: "Banbury", crs: "BAN"),
-        Station(name: "Didcot Parkway", crs: "DID"),
-        Station(name: "Slough", crs: "SLO"),
-        Station(name: "Maidenhead", crs: "MAI"),
-        Station(name: "Twyford", crs: "TWY"),
-        Station(name: "Ealing Broadway", crs: "EAL"),
-        Station(name: "Shenfield", crs: "SNF"),
-        Station(name: "Stratford", crs: "SRA"),
-        Station(name: "Clapham Junction", crs: "CLJ"),
-        Station(name: "East Croydon", crs: "ECR"),
-        Station(name: "Gatwick Airport", crs: "GTW"),
-        Station(name: "Luton Airport Parkway", crs: "LTN"),
-        Station(name: "Stansted Airport", crs: "SSD"),
-        Station(name: "Heathrow Terminal 5", crs: "HWV"),
-        Station(name: "Milton Keynes Central", crs: "MKC"),
-        Station(name: "Watford Junction", crs: "WFJ"),
-        Station(name: "St Albans City", crs: "SAC"),
-        Station(name: "Stevenage", crs: "SVG"),
-        Station(name: "Hitchin", crs: "HIT"),
-        Station(name: "Colchester", crs: "COL"),
-        Station(name: "Chelmsford", crs: "CHM"),
-        Station(name: "Southend Victoria", crs: "SOV"),
-        Station(name: "Canterbury West", crs: "CBW"),
-        Station(name: "Dover Priory", crs: "DVP"),
-        Station(name: "Ashford International", crs: "AFK"),
-        Station(name: "Hastings", crs: "HGS"),
-        Station(name: "Eastbourne", crs: "EBN"),
-        Station(name: "Lewes", crs: "LWS"),
-        Station(name: "Tunbridge Wells", crs: "TBW"),
-        Station(name: "Sevenoaks", crs: "SEV"),
-        Station(name: "Tonbridge", crs: "TON"),
-        Station(name: "Maidstone East", crs: "MDE"),
-        Station(name: "Crewe", crs: "CRE"),
-        Station(name: "Chester", crs: "CTR"),
-        Station(name: "Warrington Bank Quay", crs: "WBQ"),
-        Station(name: "Wigan North Western", crs: "WGN"),
-        Station(name: "Bolton", crs: "BON"),
-        Station(name: "Blackpool North", crs: "BPN"),
-        Station(name: "Huddersfield", crs: "HUD"),
-        Station(name: "Bradford Interchange", crs: "BDI"),
-        Station(name: "Halifax", crs: "HFX"),
-        Station(name: "Wakefield Westgate", crs: "WKF"),
-        Station(name: "Doncaster", crs: "DON"),
-        Station(name: "Darlington", crs: "DAR"),
-        Station(name: "Durham", crs: "DHM"),
-        Station(name: "Sunderland", crs: "SUN"),
-        Station(name: "Middlesbrough", crs: "MBR"),
-        Station(name: "Hull", crs: "HUL"),
-        Station(name: "Scarborough", crs: "SCA"),
-        Station(name: "Harrogate", crs: "HGT"),
-        Station(name: "Lincoln", crs: "LCN"),
-        Station(name: "Grimsby Town", crs: "GMB"),
-        Station(name: "Shrewsbury", crs: "SHR"),
-        Station(name: "Telford Central", crs: "TFC"),
-        Station(name: "Stafford", crs: "STA"),
-        Station(name: "Tamworth", crs: "TAM"),
-        Station(name: "Nuneaton", crs: "NUN"),
-        Station(name: "Rugby", crs: "RUG"),
-        Station(name: "Northampton", crs: "NMP"),
-        Station(name: "Kettering", crs: "KET"),
-        Station(name: "Wellingborough", crs: "WEL"),
-        Station(name: "Bedford", crs: "BDM"),
-        Station(name: "Luton", crs: "LUT"),
-        Station(name: "Letchworth Garden City", crs: "LET"),
-        Station(name: "Royston", crs: "RYS"),
-        Station(name: "Ely", crs: "ELY"),
-        Station(name: "Kings Lynn", crs: "KLN"),
-        Station(name: "Taunton", crs: "TAU"),
-        Station(name: "Weston-super-Mare", crs: "WSM"),
-        Station(name: "Chippenham", crs: "CPM"),
-        Station(name: "Trowbridge", crs: "TRO"),
-        Station(name: "Westbury", crs: "WSB"),
-        Station(name: "Frome", crs: "FRO"),
-        Station(name: "Yeovil Junction", crs: "YVJ"),
-        Station(name: "Dorchester South", crs: "DCH"),
-        Station(name: "Weymouth", crs: "WEY"),
-        Station(name: "Poole", crs: "POO"),
-        Station(name: "Wareham", crs: "WRM"),
-        Station(name: "Fareham", crs: "FRM"),
-        Station(name: "Havant", crs: "HAV"),
-        Station(name: "Chichester", crs: "CCH"),
-        Station(name: "Worthing", crs: "WRH"),
-        Station(name: "Horsham", crs: "HRH"),
-        Station(name: "Crawley", crs: "CRW"),
-        Station(name: "Redhill", crs: "RDH"),
-        Station(name: "Dorking", crs: "DKG"),
-        Station(name: "Epsom", crs: "EPS"),
-        Station(name: "Surbiton", crs: "SUR"),
-        Station(name: "Kingston", crs: "KNG"),
-        Station(name: "Richmond", crs: "RMD"),
-        Station(name: "Twickenham", crs: "TWI"),
-        Station(name: "Staines", crs: "SNE"),
-        Station(name: "Windsor & Eton Central", crs: "WNC"),
-        Station(name: "Henley-on-Thames", crs: "HOT"),
-        Station(name: "Marlow", crs: "MLW"),
-        Station(name: "High Wycombe", crs: "HWY"),
-        Station(name: "Aylesbury", crs: "AYS"),
-        Station(name: "Bicester North", crs: "BCS"),
-        Station(name: "Leamington Spa", crs: "LMS"),
-        Station(name: "Stratford-upon-Avon", crs: "SAV"),
-        Station(name: "Great Malvern", crs: "GMV"),
-        Station(name: "Kidderminster", crs: "KID"),
-        Station(name: "Birmingham International", crs: "BHI"),
-        Station(name: "Solihull", crs: "SOL"),
-    ]
+    init(stations: [Station]? = nil) {
+        self.stations = stations ?? Self.loadBundledStations() ?? Self.fallbackStations
+    }
 
     /// Common spoken names that differ from the official station name (Phase 6).
     /// Keys are matched with the same normalization as station names, so
@@ -232,7 +76,18 @@ struct StationRepository {
         aliases.map { (Self.normalize($0.key), $0.value.uppercased()) }
     }()
 
-    /// Search stations by name prefix (case-insensitive)
+    /// The stations most people search for, surfaced first in the map's
+    /// zoomed-out view so the country view isn't a wall of 2,600 pins.
+    static let majorCRSCodes: Set<String> = [
+        "KGX", "EUS", "PAD", "WAT", "VIC", "LST", "STP", "LBG", "CHX", "MYB",
+        "BHM", "MAN", "MCV", "LDS", "SHF", "BRI", "EDB", "GLC", "GLQ", "LIV",
+        "NCL", "YRK", "NOT", "LEI", "CBG", "NRW", "PBO", "CDF", "SWA", "PLY",
+        "EXD", "SOU", "PMH", "BTN", "BMH", "BTH", "RDG", "OXF", "COV", "DBY",
+        "PRE", "CAR", "ABD", "DEE", "INV", "STG", "GTW", "SSD", "LTN", "HUL",
+        "MBR", "DON", "CRE", "SWI", "IPS", "COL", "WVH", "DHM", "DAR", "LAN",
+    ]
+
+    /// Search stations by name fragment, CRS prefix, or alias (case-insensitive)
     func search(query: String) -> [Station] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
@@ -297,6 +152,31 @@ struct StationRepository {
         return stations.first { $0.crs.uppercased() == normalizedCRS }
     }
 
+    /// Stations inside a lat/lon window, majors first, capped for map display.
+    func stations(
+        latitude: ClosedRange<Double>,
+        longitude: ClosedRange<Double>,
+        majorsOnly: Bool,
+        limit: Int
+    ) -> [Station] {
+        var visible = stations.filter { station in
+            guard let lat = station.latitude, let lon = station.longitude else { return false }
+            return latitude.contains(lat) && longitude.contains(lon)
+        }
+        if majorsOnly {
+            visible = visible.filter { Self.majorCRSCodes.contains($0.crs) }
+        } else {
+            // Majors first so they survive the cap at medium zoom.
+            visible.sort { a, b in
+                let aMajor = Self.majorCRSCodes.contains(a.crs)
+                let bMajor = Self.majorCRSCodes.contains(b.crs)
+                if aMajor != bMajor { return aMajor }
+                return a.name < b.name
+            }
+        }
+        return Array(visible.prefix(limit))
+    }
+
     private func normalized(_ value: String) -> String {
         Self.normalize(value)
     }
@@ -307,4 +187,50 @@ struct StationRepository {
             .folding(options: [.diacriticInsensitive, .widthInsensitive], locale: .current)
             .filter { $0.isLetter || $0.isNumber }
     }
+
+    // MARK: - Data loading
+
+    private struct BundledStation: Decodable {
+        let name: String
+        let crs: String
+        let lat: Double
+        let lon: Double
+    }
+
+    private static func loadBundledStations() -> [Station]? {
+        guard let url = Bundle.main.url(forResource: "uk-stations", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let decoded = try? JSONDecoder().decode([BundledStation].self, from: data),
+              !decoded.isEmpty
+        else { return nil }
+
+        return decoded.map {
+            Station(name: $0.name, crs: $0.crs.uppercased(), latitude: $0.lat, longitude: $0.lon)
+        }
+    }
+
+    /// Minimal safety net if the bundled dataset can't be read.
+    private static let fallbackStations: [Station] = [
+        Station(name: "London Paddington", crs: "PAD", latitude: 51.5154, longitude: -0.1755),
+        Station(name: "London Waterloo", crs: "WAT", latitude: 51.5031, longitude: -0.1132),
+        Station(name: "London Victoria", crs: "VIC", latitude: 51.4952, longitude: -0.1441),
+        Station(name: "London Euston", crs: "EUS", latitude: 51.5282, longitude: -0.1337),
+        Station(name: "London Kings Cross", crs: "KGX", latitude: 51.5308, longitude: -0.1238),
+        Station(name: "London St Pancras International", crs: "STP", latitude: 51.5310, longitude: -0.1260),
+        Station(name: "London Liverpool Street", crs: "LST", latitude: 51.5178, longitude: -0.0817),
+        Station(name: "London Bridge", crs: "LBG", latitude: 51.5049, longitude: -0.0863),
+        Station(name: "Birmingham New Street", crs: "BHM", latitude: 52.4778, longitude: -1.8985),
+        Station(name: "Manchester Piccadilly", crs: "MAN", latitude: 53.4774, longitude: -2.2309),
+        Station(name: "Leeds", crs: "LDS", latitude: 53.7951, longitude: -1.5484),
+        Station(name: "Bristol Temple Meads", crs: "BRI", latitude: 51.4494, longitude: -2.5813),
+        Station(name: "Edinburgh Waverley", crs: "EDB", latitude: 55.9520, longitude: -3.1890),
+        Station(name: "Glasgow Central", crs: "GLC", latitude: 55.8592, longitude: -4.2576),
+        Station(name: "Liverpool Lime Street", crs: "LIV", latitude: 53.4078, longitude: -2.9779),
+        Station(name: "Newcastle", crs: "NCL", latitude: 54.9683, longitude: -1.6178),
+        Station(name: "York", crs: "YRK", latitude: 53.9583, longitude: -1.0803),
+        Station(name: "Cardiff Central", crs: "CDF", latitude: 51.4761, longitude: -3.1794),
+        Station(name: "Reading", crs: "RDG", latitude: 51.4586, longitude: -0.9714),
+        Station(name: "Oxford", crs: "OXF", latitude: 51.7534, longitude: -1.2700),
+        Station(name: "Gatwick Airport", crs: "GTW", latitude: 51.1564, longitude: -0.1611),
+    ]
 }

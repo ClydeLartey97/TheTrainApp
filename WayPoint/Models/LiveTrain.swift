@@ -5,8 +5,9 @@
 //  Created by Clyde Lartey on 07/04/2026.
 //
 
-import CoreLocation
 import SwiftUI
+
+// Severity used by the live metro status feeds (TfL / MTA).
 
 enum TrainStatus: String, CaseIterable, Identifiable {
     case onTime
@@ -38,13 +39,3 @@ enum TrainStatus: String, CaseIterable, Identifiable {
     }
 }
 
-struct LiveTrain: Identifiable {
-    let id = UUID()
-    let code: String
-    let routeName: String
-    let statusText: String
-    let status: TrainStatus
-    let coordinate: CLLocationCoordinate2D
-
-    var statusColor: Color { status.color }
-}

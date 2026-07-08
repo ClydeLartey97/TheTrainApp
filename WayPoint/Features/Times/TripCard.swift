@@ -357,5 +357,16 @@ struct ServiceDetailSheet: View {
 }
 
 #Preview {
-    TripCard(trip: RailNetwork.ukNationalRail.sampleTrips[0])
+    TripCard(trip: RailTrip(
+        origin: "London Paddington",
+        destination: "Oxford",
+        departureTime: "16:04",
+        arrivalTime: "16:56",
+        duration: "52 min",
+        operatorName: "Great Western Railway",
+        changeSummary: "Direct",
+        price: nil,
+        platform: "9",
+        status: "On time"
+    ))
 }

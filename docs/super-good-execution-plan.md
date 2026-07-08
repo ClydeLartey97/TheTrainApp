@@ -88,6 +88,17 @@ The work should happen in phases:
 
 ## Execution Log
 
+### 2026-07-08
+
+Removed the last sample-data surfaces and deepened the UK market (Phases 5/6 slices):
+
+- Bundled the full national station corpus (2,606 stations with coordinates, from the open uk-railway-stations dataset) as `Resources/uk-stations.json`. `StationRepository` now loads it at startup with a small built-in fallback list, so Times search covers every UK station instantly and offline. `Station` gained optional coordinates.
+- Rebuilt the Live Map tab as a real station map: a full-bleed interactive MapKit view with genuine station pins (majors-only when zoomed out, capped annotation density when zoomed in, labels appear at close zoom). Tapping any pin opens that station's live departure board — same Huxley2 data path as the Times tab, with the freshness row, trip badges, service details, and journey tracking all available from the map.
+- Deleted `RailNetwork.trains` sample train positions, `sampleTrips`, the `LiveTrain` model, the "Preview data" banner, and the fake service-summary/tracked-services sections. `TrainStatus` remains for the live metro severity mapping. Non-UK markets show an honest "stations coming soon" overlay instead of pretending.
+- Added the first real app icon (waypoint pin + dashed route on the brand gradient), generated at 1024px for light/dark/tinted variants.
+- New UI smoke test: land on the map tab, decline location (so the fresh simulator stays on UK Rail), tap a station pin, and assert the live board sheet opens with the trust row. Map annotation buttons carry accessibility labels/identifiers ("station-pin-CRS").
+- Verified in the simulator with a London location: nationwide pins render, location detection auto-switches markets (US location → Amtrak with the coming-soon overlay), and the full suite passes.
+
 ### 2026-07-07
 
 Completed the first active journey slice (Phase 4):
