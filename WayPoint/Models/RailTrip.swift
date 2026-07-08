@@ -7,7 +7,7 @@
 
 import Foundation
 
-nonisolated struct CallingPoint: Identifiable, Hashable {
+nonisolated struct CallingPoint: Identifiable, Hashable, Codable {
     var id: String { "\(crs)-\(scheduledTime)" }
     let stationName: String
     let crs: String

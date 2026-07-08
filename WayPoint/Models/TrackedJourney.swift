@@ -27,6 +27,9 @@ nonisolated struct TrackedJourney: Codable, Equatable {
     var disruptionReason: String?
     var lastUpdatedAt: Date
     var lastUpdateFailed: Bool
+    /// Full calling-point timeline with live timings, refreshed on every poll.
+    /// Drives the estimated map position.
+    var callingPoints: [CallingPoint]
 
     var notifiedCancellation: Bool
     var notifiedPlatform: String?
@@ -47,6 +50,7 @@ nonisolated struct TrackedJourney: Codable, Equatable {
         self.disruptionReason = trip.cancelReason ?? trip.delayReason
         self.lastUpdatedAt = .now
         self.lastUpdateFailed = false
+        self.callingPoints = trip.callingPoints
         self.notifiedCancellation = trip.isCancelled
         self.notifiedPlatform = trip.platform
         self.notifiedDelayedStatus = nil

@@ -88,6 +88,17 @@ The work should happen in phases:
 
 ## Execution Log
 
+### 2026-07-08 (later)
+
+Estimated train positions on the map:
+
+- `TrainPositionEstimator`: pure interpolation between calling points using their live timings (actual beats estimated beats scheduled; non-time strings like "On time" fall back correctly). Handles overnight services — the first stop resolves to whichever day is closest to the tracking anchor, and each later stop anchors to the previous stop's day so timelines never gain a phantom 24-hour gap. Both midnight bugs were caught live against the 23:06 Bedford → Three Bridges at Gatwick and are covered by regression tests.
+- `TrainPositionProvider`: single entry point that prefers an official live vehicle feed (hook in place, none integrated for the UK yet) and falls back to the estimate. Every surface labels the source — "Estimated position · from live National Rail timings" — so an estimate is never presented as a live fix.
+- `TrackedJourney` now persists its full calling-point timeline; `JourneyTracker` rebuilds it on every poll from the service detail, including `previousCallingPoints`, so a tracked train appears on the map while it is still on its way to your station.
+- Live Map renders the tracked train: dashed route polyline, source-labelled marker, a bottom status card ("Between Three Bridges and Gatwick Airport"), a re-center button, and a 20-second clock so the marker keeps moving between one-minute tracker refreshes.
+- Fixed the board mapping so a trip's first calling point is the queried station (previously it was mislabeled with the service's origin name).
+- 11 new estimator unit tests (49 total). Verified live in the simulator: tracked the 01:45 Gatwick → Bedford and watched its estimated marker sit correctly between Three Bridges and Gatwick before arrival.
+
 ### 2026-07-08
 
 Removed the last sample-data surfaces and deepened the UK market (Phases 5/6 slices):

@@ -18,6 +18,10 @@ struct LiveMapView: View {
     @State private var visibleRegion: MKCoordinateRegion
     @State private var selectedStation: Station?
     @State private var isRegionPickerPresented = false
+    /// Re-evaluated periodically so the estimated train position moves
+    /// between tracker refreshes.
+    @State private var clock = Date.now
+    @Environment(JourneyTracker.self) private var tracker
 
     private let repo = StationRepository.shared
 
@@ -36,6 +40,18 @@ struct LiveMapView: View {
     var body: some View {
         NavigationStack {
             Map(position: $position) {
+                if let trainPosition {
+                    MapPolyline(coordinates: trainPosition.routeCoordinates)
+                        .stroke(
+                            Color.waypointTint.opacity(0.65),
+                            style: StrokeStyle(lineWidth: 4, lineCap: .round, dash: [7, 7])
+                        )
+
+                    Annotation("", coordinate: trainPosition.coordinate, anchor: .center) {
+                        trainMarker(for: trainPosition)
+                    }
+                }
+
                 ForEach(visibleStations) { station in
                     Annotation(
                         annotationTitle(for: station),
@@ -61,8 +77,16 @@ struct LiveMapView: View {
             .ignoresSafeArea(edges: .bottom)
             .overlay(alignment: .top) { mapHeader }
             .overlay(alignment: .bottom) {
-                if !selectedNetwork.hasLiveDepartures {
+                if let journey = tracker.journey, let trainPosition {
+                    trackedTrainCard(journey: journey, position: trainPosition)
+                } else if !selectedNetwork.hasLiveDepartures {
                     comingSoonOverlay
+                }
+            }
+            .task {
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(20))
+                    clock = .now
                 }
             }
             .navigationTitle("Stations")
@@ -100,6 +124,79 @@ struct LiveMapView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Tracked train position
+
+    private var trainPosition: TrainMapPosition? {
+        guard let journey = tracker.journey else { return nil }
+        // Reading `clock` here re-evaluates the estimate as time passes.
+        return TrainPositionProvider.position(for: journey, at: max(clock, journey.lastUpdatedAt))
+    }
+
+    private func trainMarker(for position: TrainMapPosition) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: "train.side.front.car")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(10)
+                .background(Color.statusOnTime, in: Circle())
+                .overlay(Circle().stroke(.white, lineWidth: 3))
+                .shadow(color: Color.statusOnTime.opacity(0.5), radius: 8, y: 3)
+
+            Text(position.source == .liveFeed ? "Live" : "Estimated")
+                .font(.caption2.weight(.bold))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(.ultraThinMaterial, in: Capsule())
+        }
+        .accessibilityLabel("Tracked train, \(position.statusLine)")
+    }
+
+    private func trackedTrainCard(journey: TrackedJourney, position trainPosition: TrainMapPosition) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "location.fill.viewfinder")
+                .font(.headline)
+                .foregroundStyle(Color.waypointTint)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(journey.scheduledDeparture) to \(journey.destinationName)")
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                Text(trainPosition.statusLine)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Text("\(trainPosition.source.label) · from live National Rail timings")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            Spacer()
+
+            Button {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    position = .region(
+                        MKCoordinateRegion(
+                            center: trainPosition.coordinate,
+                            span: MKCoordinateSpan(latitudeDelta: 0.35, longitudeDelta: 0.35)
+                        )
+                    )
+                }
+            } label: {
+                Image(systemName: "scope")
+                    .font(.subheadline.weight(.bold))
+                    .frame(width: 38, height: 38)
+                    .background(Color.waypointTint.opacity(0.14), in: Circle())
+                    .foregroundStyle(Color.waypointTint)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Center map on tracked train")
+        }
+        .padding(14)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Stations for the current viewport

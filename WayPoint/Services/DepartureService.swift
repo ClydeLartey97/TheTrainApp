@@ -273,10 +273,11 @@ actor DepartureService {
 
         let status = HuxleyStatus.statusText(std: departureTime, etd: etd, isCancelled: service.isCancelled)
 
-        // Build calling points starting with origin as first stop
+        // Build calling points starting with the board's station as first stop
+        // (the trip's `origin` label is the service's origin, which can differ).
         var callingPoints: [CallingPoint] = [
             CallingPoint(
-                stationName: origin,
+                stationName: fromStation,
                 crs: fromCRS,
                 scheduledTime: departureTime,
                 estimatedTime: service.isCancelled == true ? "Cancelled" : (etd.isEmpty ? "On time" : etd),

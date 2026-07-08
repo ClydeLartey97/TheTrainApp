@@ -154,6 +154,45 @@ final class JourneyTracker {
         current.platform = newPlatform ?? current.platform
         current.isCancelled = newCancelled
         current.disruptionReason = newReason
+        // The detail response carries fresh estimated/actual times for every
+        // stop — this is what keeps the estimated map position honest.
+        let rebuilt = rebuiltCallingPoints(from: detail, journey: current)
+        if rebuilt.count >= 2 {
+            current.callingPoints = rebuilt
+        }
+    }
+
+    /// Full calling-point timeline from a service detail response: the stops
+    /// before the tracked station (so the estimated position works while the
+    /// train is still on its way there), the tracked station itself, then
+    /// every subsequent stop — all with live timings.
+    private func rebuiltCallingPoints(from detail: Huxley2ServiceDetail, journey: TrackedJourney) -> [CallingPoint] {
+        func mapped(_ points: [Huxley2CallingPoint]?) -> [CallingPoint] {
+            (points ?? []).compactMap { cp -> CallingPoint? in
+                guard let name = cp.locationName, let scheduled = cp.st else { return nil }
+                return CallingPoint(
+                    stationName: name,
+                    crs: cp.crs ?? "",
+                    scheduledTime: scheduled,
+                    estimatedTime: cp.et,
+                    actualTime: cp.at
+                )
+            }
+        }
+
+        let boardStationName = StationRepository.shared
+            .findStation(crs: journey.originCRS)?.name ?? journey.originName
+        let boardStop = CallingPoint(
+            stationName: boardStationName,
+            crs: journey.originCRS,
+            scheduledTime: detail.std ?? journey.scheduledDeparture,
+            estimatedTime: detail.etd,
+            actualTime: nil
+        )
+
+        return mapped(detail.previousCallingPoints?.first?.callingPoint)
+            + [boardStop]
+            + mapped(detail.subsequentCallingPoints?.first?.callingPoint)
     }
 
     // MARK: - Polling
